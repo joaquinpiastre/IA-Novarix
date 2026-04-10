@@ -11,6 +11,25 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        novarix: {
+          bg: "#0A0118",
+          card: "#2D0A5E",
+          mid: "#4A1A9E",
+          accent: "#7B2FF7",
+          highlight: "#A855F7",
+          magenta: "#C026D3",
+          muted: "#7C6FAE",
+          secondary: "#C4B5FD",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-inter)", "Arial", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
+      },
+      borderRadius: {
+        card: "12px",
+        input: "8px",
+        badge: "6px",
       },
     },
   },

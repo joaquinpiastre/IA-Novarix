@@ -1,0 +1,20 @@
+# PostgreSQL local para desarrollo (Docker Desktop tiene que estar abierto)
+# Uso: docker compose up -d
+# Luego en .env.local:
+# DATABASE_URL="postgresql://postgres:postgres@localhost:5432/novarix"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: novarix
+    volumes:
+      - novarix_pg:/var/lib/postgresql/data
+
+volumes:
+  novarix_pg:

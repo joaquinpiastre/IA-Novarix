@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tabla "empresas": el flag de cuenta habilitada es el campo "activo" (no existe columna "existe").
+model Empresa {
+  id                 String   @id @default(cuid())
+  nombre             String
+  email              String   @unique
+  passwordHash       String
+  rol                Rol      @default(CLIENTE)
+  plan               Plan     @default(BASIC)
+  creditosIncluidos  Int      @default(50)
+  creditosUsados     Float    @default(0)
+  activo             Boolean  @default(true)
+  whatsappNumero     String?
+  whatsappToken      String?
+  whatsappPhoneId    String?
+  whatsappVerifyToken String?
+  stockApiUrl         String? // GET JSON catálogo ERP (lib/stock-api.ts)
+  stockApiToken       String?
+  stockApiKeyHeader   String? // ej. X-API-Key; vacío + token = Bearer
+  cotizacionIncluyeGrupos Boolean @default(true) // al armar cotizaciones, incluir chats de grupo WhatsApp
+  creadoEn           DateTime @default(now())
+
+  agentes         Agente[]
+  conversaciones  Conversacion[]
+  archivos        ArchivoConocimiento[]
+
+  @@map("empresas")
+}
+
+model Agente {
+  id               String   @id @default(cuid())
+  empresaId        String
+  nombre           String
+  slug             String? // identificador corto opcional (ej. martin-pintureria)
+  descripcion      String?
+  prompt           String   @db.Text
+  promptTenant     String?  @db.Text // instrucciones extra del tenant (se anexan al system)
+  activo           Boolean  @default(true)
+  esDefault        Boolean  @default(false)
+  codigoActivacion String?  @unique // palabra clave de ruteo (WhatsApp / canales)
+  permiteTransferencia Boolean @default(false)
+  busquedaProductos    Boolean @default(true) // si false, no consulta API stock ERP
+  temperatura      Float    @default(0.6)
+  modeloOpenai     String   @default("gpt-4o-mini")
+  maxTokens        Int      @default(1024)
+  creadoEn         DateTime @default(now())
+
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  archivos       ArchivoConocimiento[]
+  conversaciones Conversacion[]
+
+  @@map("agentes")
+}
+
+model ArchivoConocimiento {
+  id        String      @id @default(cuid())
+  empresaId String
+  agenteId  String?
+  nombre    String
+  tipo      TipoArchivo
+  url       String
+  contenido String?     @db.Text
+  creadoEn  DateTime    @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  agente  Agente? @relation(fields: [agenteId], references: [id], onDelete: SetNull)
+
+  @@map("archivos_conocimiento")
+}
+
+model Conversacion {
+  id             String               @id @default(cuid())
+  empresaId      String
+  agenteId       String?
+  numeroCliente  String // teléfono o id de grupo (@g.us)
+  nombreCliente  String?
+  estado         EstadoConversacion   @default(ACTIVA)
+  esGrupo        Boolean              @default(false) // WhatsApp grupo (from suele terminar en @g.us)
+  iaHabilitada   Boolean              @default(true) // si false, no se llama a la IA en este chat
+  atencionHumana AtencionHumanaEstado @default(NINGUNA) // cola humana: ACTIVA = pendiente, RESUELTA = cerrada por staff
+  mensajes       Json                 @default("[]")
+  tokensUsados   Int                  @default(0)
+  creditosUsados Float                @default(0)
+  iniciadoEn     DateTime             @default(now())
+  ultimoMensaje  DateTime             @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  agente  Agente? @relation(fields: [agenteId], references: [id], onDelete: SetNull)
+
+  @@map("conversaciones")
+}
+
+enum Rol {
+  SUPERADMIN
+  CLIENTE
+}
+
+enum Plan {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum TipoArchivo {
+  EXCEL
+  PDF
+  CSV
+  TEXTO
+}
+
+enum EstadoConversacion {
+  ACTIVA
+  RESUELTA
+  DERIVADA_HUMANO
+}
+
+enum AtencionHumanaEstado {
+  NINGUNA // sin pedido de humano explícito en cola
+  ACTIVA  // necesita atención humana (pendiente)
+  RESUELTA // el equipo cerró el caso; la IA puede volver a responder en mensajes nuevos
+}

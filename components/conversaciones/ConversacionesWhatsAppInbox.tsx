@@ -1,0 +1,254 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { AtencionHumanaEstado } from "@prisma/client";
+import { Button } from "@/components/ui/Button";
+
+export type InboxRow = {
+  id: string;
+  numeroCliente: string;
+  nombreCliente: string | null;
+  ultimoMensaje: string;
+  estado: string;
+  esGrupo: boolean;
+  iaHabilitada: boolean;
+  atencionHumana: AtencionHumanaEstado;
+  mensajes: unknown;
+  agente: { nombre: string } | null;
+};
+
+function previewMensajes(mensajes: unknown): string {
+  const msgs = (mensajes as { content?: string }[]) ?? [];
+  const last = msgs[msgs.length - 1]?.content;
+  return last?.trim() || "Sin mensajes";
+}
+
+function tituloChat(c: InboxRow): string {
+  if (c.nombreCliente?.trim()) return c.nombreCliente.trim();
+  return c.numeroCliente;
+}
+
+function horaCorta(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  return sameDay
+    ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+}
+
+export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }) {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const paramC = sp.get("c");
+
+  const [rows, setRows] = useState<InboxRow[]>(initial);
+  const [q, setQ] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(paramC || null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    if (paramC && rows.some((r) => r.id === paramC)) setSelectedId(paramC);
+  }, [paramC, rows]);
+
+  const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return rows;
+    return rows.filter(
+      (r) =>
+        r.numeroCliente.toLowerCase().includes(t) ||
+        (r.nombreCliente?.toLowerCase().includes(t) ?? false) ||
+        previewMensajes(r.mensajes).toLowerCase().includes(t)
+    );
+  }, [rows, q]);
+
+  const select = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      const n = new URLSearchParams(sp.toString());
+      n.set("c", id);
+      router.replace(`/conversaciones?${n.toString()}`, { scroll: false });
+    },
+    [router, sp]
+  );
+
+  async function patch(id: string, body: Record<string, unknown>) {
+    setSaving(true);
+    setMsg("");
+    const r = await fetch(`/api/conversaciones/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    setSaving(false);
+    if (!r.ok) {
+      setMsg(j.error ?? "No se pudo guardar");
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        const um = j.ultimoMensaje;
+        return {
+          ...row,
+          ...j,
+          ultimoMensaje: typeof um === "string" ? um : new Date(um as string).toISOString(),
+        };
+      })
+    );
+    setMsg("Listo.");
+  }
+
+  return (
+    <div className="flex min-h-[min(85vh,760px)] flex-col overflow-hidden rounded-xl border border-[#7B2FF7]/25 bg-[#0A0118]/50 lg:flex-row">
+      <aside className="flex w-full flex-col border-b border-[#7B2FF7]/20 lg:max-w-[380px] lg:border-b-0 lg:border-r">
+        <div className="border-b border-[#7B2FF7]/15 p-3">
+          <input
+            type="search"
+            placeholder="Buscar por nombre, número o texto…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full rounded-input border border-[#7B2FF7]/30 bg-[#0A0118]/60 px-3 py-2.5 text-sm text-white placeholder:text-[#7C6FAE] focus:border-[#7B2FF7] focus:outline-none focus:ring-1 focus:ring-[#7B2FF7]/50"
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {filtered.map((c) => {
+            const active = c.id === selectedId;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => select(c.id)}
+                className={`flex w-full gap-3 border-b border-[#7B2FF7]/10 px-3 py-3 text-left transition hover:bg-[#2D0A5E]/30 ${
+                  active ? "bg-[#2D0A5E]/50" : ""
+                }`}
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-sm font-semibold text-white">
+                  {tituloChat(c).slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate font-medium text-white">{tituloChat(c)}</span>
+                    <span className="shrink-0 text-[11px] text-[#7C6FAE]">{horaCorta(c.ultimoMensaje)}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-sm text-[#9B8FC4]">{previewMensajes(c.mensajes)}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {c.esGrupo ? (
+                      <span className="rounded bg-[#4A1A9E]/60 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
+                        Grupo
+                      </span>
+                    ) : null}
+                    {!c.iaHabilitada ? (
+                      <span className="rounded bg-[#3D2A1A]/80 px-1.5 py-0.5 text-[10px] text-amber-200/90">
+                        IA off
+                      </span>
+                    ) : null}
+                    {c.atencionHumana === "ACTIVA" ? (
+                      <span className="rounded bg-rose-950/80 px-1.5 py-0.5 text-[10px] text-rose-200">
+                        Humano · activa
+                      </span>
+                    ) : null}
+                    {c.atencionHumana === "RESUELTA" ? (
+                      <span className="rounded bg-emerald-950/70 px-1.5 py-0.5 text-[10px] text-emerald-200">
+                        Humano · resuelta
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {!filtered.length ? (
+            <p className="p-6 text-center text-sm text-[#7C6FAE]">No hay chats que coincidan.</p>
+          ) : null}
+        </div>
+      </aside>
+
+      <section className="flex min-h-[320px] flex-1 flex-col p-4 lg:min-h-0">
+        {!selected ? (
+          <div className="flex flex-1 items-center justify-center text-[#7C6FAE]">
+            Elegí un chat de la lista (vista tipo WhatsApp Web).
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 border-b border-[#7B2FF7]/15 pb-4">
+              <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
+              <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
+              <p className="mt-2 text-sm text-[#9B8FC4]">
+                Vista resumida: no mostramos el historial completo acá; operás el hilo en WhatsApp.
+              </p>
+              <p className="mt-2 rounded-lg border border-[#7B2FF7]/20 bg-[#0A0118]/60 p-3 text-sm text-[#C4B5FD]">
+                Último mensaje:{" "}
+                <span className="text-white/90">{previewMensajes(selected.mensajes)}</span>
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[#7B2FF7]/40"
+                    checked={selected.iaHabilitada}
+                    disabled={saving}
+                    onChange={(e) => void patch(selected.id, { iaHabilitada: e.target.checked })}
+                  />
+                  IA habilitada en este chat
+                </label>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#7C6FAE]">
+                  Atención humana
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={saving || selected.atencionHumana === "ACTIVA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "ACTIVA" })}
+                  >
+                    Necesita humano (activa)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={saving || selected.atencionHumana !== "ACTIVA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "RESUELTA" })}
+                  >
+                    Marcar resuelta
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={saving || selected.atencionHumana === "NINGUNA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "NINGUNA" })}
+                  >
+                    Quitar cola
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-[#7C6FAE]">
+                  Con cola activa la IA no responde hasta que marques resuelta; después el próximo mensaje
+                  del cliente reactiva la IA automáticamente.
+                </p>
+              </div>
+
+              {msg ? <p className="text-sm text-[#A855F7]">{msg}</p> : null}
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
