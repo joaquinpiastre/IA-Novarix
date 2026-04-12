@@ -64,6 +64,21 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     where: { id: params.id, empresaId: ctx.empresaId },
   });
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
+  if (existing.esDefault) {
+    const siguiente = await prisma.agente.findFirst({
+      where: { empresaId: ctx.empresaId, id: { not: params.id } },
+      orderBy: { creadoEn: "desc" },
+    });
+    await prisma.agente.updateMany({
+      where: { empresaId: ctx.empresaId },
+      data: { esDefault: false },
+    });
+    if (siguiente) {
+      await prisma.agente.update({ where: { id: siguiente.id }, data: { esDefault: true } });
+    }
+  }
+
   await prisma.agente.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
 }

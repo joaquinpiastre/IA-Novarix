@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { getEffectiveEmpresaId } from "@/lib/session-empresa";
 import { prisma } from "@/lib/db";
 import { PageShell } from "@/components/layout/PageShell";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { AgenteGuardadoBanner } from "@/components/agentes/AgenteGuardadoBanner";
+import { AgenteListaCard } from "@/components/agentes/AgenteListaCard";
 import { Button } from "@/components/ui/Button";
 import { Plus } from "lucide-react";
 
@@ -22,6 +22,7 @@ export default async function AgentesPage() {
 
   return (
     <PageShell title="Agentes">
+      <AgenteGuardadoBanner />
       <div className="mb-6 flex justify-end">
         <Link href="/agentes/nuevo">
           <Button type="button" className="gap-2">
@@ -32,22 +33,15 @@ export default async function AgentesPage() {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {agentes.map((a) => (
-          <Link key={a.id} href={`/agentes/${a.id}`}>
-            <Card className="h-full transition hover:border-[#7B2FF7]/60">
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="text-lg font-semibold text-white">{a.nombre}</h2>
-                <Badge variant={a.activo ? "activo" : "inactivo"}>
-                  {a.activo ? "Activo" : "Inactivo"}
-                </Badge>
-              </div>
-              {a.descripcion ? (
-                <p className="mt-2 line-clamp-2 text-sm text-[#C4B5FD]">{a.descripcion}</p>
-              ) : null}
-              <p className="mt-4 text-xs text-[#7C6FAE]">
-                {a._count.conversaciones} conversaciones {a.esDefault ? " · Agente por defecto" : ""}
-              </p>
-            </Card>
-          </Link>
+          <AgenteListaCard
+            key={a.id}
+            id={a.id}
+            nombre={a.nombre}
+            descripcion={a.descripcion}
+            activo={a.activo}
+            esDefault={a.esDefault}
+            conversaciones={a._count.conversaciones}
+          />
         ))}
       </div>
       {!agentes.length ? (

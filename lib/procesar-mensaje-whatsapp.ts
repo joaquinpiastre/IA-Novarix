@@ -1,9 +1,10 @@
-import type { AtencionHumanaEstado, Prisma } from "@prisma/client";
+import type { AtencionHumanaEstado, CanalConversacion, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { calcularCreditos } from "@/lib/creditos";
 import { construirSystemPrompt, generarRespuestaAgente } from "@/lib/openai";
 import { enviarMensajeWhatsApp } from "@/lib/whatsapp";
 import { obtenerTextoCatalogoExterno } from "@/lib/stock-api";
+import { obtenerOCrearContacto } from "@/lib/crm";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -21,11 +22,19 @@ export async function procesarMensajeWhatsApp(input: {
   textoMensaje: string;
   phoneNumberId: string;
   esGrupo: boolean;
+  nombreCliente?: string | null;
 }): Promise<void> {
   const empresa = await prisma.empresa.findFirst({
     where: { whatsappPhoneId: input.phoneNumberId, activo: true },
   });
   if (!empresa?.whatsappToken) return;
+
+  const contacto = await obtenerOCrearContacto(
+    empresa.id,
+    input.numeroCliente,
+    input.nombreCliente,
+    "WHATSAPP"
+  );
 
   const agenteDefault = await prisma.agente.findFirst({
     where: { empresaId: empresa.id, activo: true, esDefault: true },
@@ -37,21 +46,15 @@ export async function procesarMensajeWhatsApp(input: {
     }));
   if (!agente) return;
 
+  const canalWa: CanalConversacion = "WHATSAPP";
   const convPrev = await prisma.conversacion.findFirst({
-    where: { empresaId: empresa.id, numeroCliente: input.numeroCliente },
+    where: { empresaId: empresa.id, numeroCliente: input.numeroCliente, canal: canalWa },
     orderBy: { ultimoMensaje: "desc" },
   });
 
   const mensajesPrev = (convPrev?.mensajes as Msg[] | null) ?? [];
   const userTurn: Msg[] = [...mensajesPrev, { role: "user", content: input.textoMensaje }];
   const now = new Date();
-
-  const reopen: Prisma.ConversacionUpdateInput = {};
-  if (convPrev?.estado === "RESUELTA") reopen.estado = "ACTIVA";
-  if (convPrev?.atencionHumana === "RESUELTA") {
-    reopen.atencionHumana = "NINGUNA";
-    reopen.estado = "ACTIVA";
-  }
 
   let convId: string;
   if (!convPrev) {
@@ -60,20 +63,31 @@ export async function procesarMensajeWhatsApp(input: {
         empresaId: empresa.id,
         agenteId: agente.id,
         numeroCliente: input.numeroCliente,
+        nombreCliente: input.nombreCliente?.trim() || null,
         esGrupo: input.esGrupo,
+        canal: canalWa,
+        contactoId: contacto.id,
         mensajes: userTurn as unknown as Prisma.InputJsonValue,
         ultimoMensaje: now,
       },
     });
     convId = c.id;
   } else {
+    const reopenEstado =
+      convPrev.atencionHumana === "RESUELTA"
+        ? ({ atencionHumana: "NINGUNA" as const, estado: "ACTIVA" as const } as const)
+        : convPrev.estado === "RESUELTA"
+          ? ({ estado: "ACTIVA" as const } as const)
+          : ({} as const);
     await prisma.conversacion.update({
       where: { id: convPrev.id },
       data: {
-        ...reopen,
+        ...reopenEstado,
         mensajes: userTurn as unknown as Prisma.InputJsonValue,
         ultimoMensaje: now,
         esGrupo: input.esGrupo || convPrev.esGrupo,
+        contactoId: contacto.id,
+        ...(input.nombreCliente?.trim() ? { nombreCliente: input.nombreCliente.trim() } : {}),
       },
     });
     convId = convPrev.id;

@@ -25,6 +25,11 @@ export async function GET() {
       stockApiKeyHeader: true,
       stockApiToken: true,
       cotizacionIncluyeGrupos: true,
+      metaPageId: true,
+      metaPageNombre: true,
+      metaInstagramUsername: true,
+      metaInstagramId: true,
+      metaConectadoEn: true,
     },
   });
   if (!empresa) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
@@ -32,6 +37,7 @@ export async function GET() {
     ...empresa,
     whatsappToken: empresa.whatsappToken ? "••••••••" : null,
     stockApiToken: empresa.stockApiToken ? "••••••••" : null,
+    metaVinculado: !!empresa.metaPageId,
   });
 }
 

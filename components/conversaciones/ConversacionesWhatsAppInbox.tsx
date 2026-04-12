@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AtencionHumanaEstado } from "@prisma/client";
+import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
 
 export type InboxRow = {
   id: string;
+  canal: CanalConversacion;
   numeroCliente: string;
   nombreCliente: string | null;
   ultimoMensaje: string;
@@ -22,6 +23,12 @@ function previewMensajes(mensajes: unknown): string {
   const msgs = (mensajes as { content?: string }[]) ?? [];
   const last = msgs[msgs.length - 1]?.content;
   return last?.trim() || "Sin mensajes";
+}
+
+function etiquetaCanal(canal: CanalConversacion): string {
+  if (canal === "MESSENGER") return "FB";
+  if (canal === "INSTAGRAM") return "IG";
+  return "WA";
 }
 
 function tituloChat(c: InboxRow): string {
@@ -141,6 +148,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                   </div>
                   <p className="mt-0.5 truncate text-sm text-[#9B8FC4]">{previewMensajes(c.mensajes)}</p>
                   <div className="mt-1 flex flex-wrap gap-1">
+                    <span className="rounded border border-[#7B2FF7]/40 bg-[#2D0A5E]/50 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
+                      {etiquetaCanal(c.canal)}
+                    </span>
                     {c.esGrupo ? (
                       <span className="rounded bg-[#4A1A9E]/60 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
                         Grupo
@@ -180,10 +190,15 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
         ) : (
           <>
             <div className="mb-4 border-b border-[#7B2FF7]/15 pb-4">
-              <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
+                <span className="rounded border border-[#7B2FF7]/40 px-2 py-0.5 text-xs text-[#C4B5FD]">
+                  {etiquetaCanal(selected.canal)}
+                </span>
+              </div>
               <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
               <p className="mt-2 text-sm text-[#9B8FC4]">
-                Vista resumida: no mostramos el historial completo acá; operás el hilo en WhatsApp.
+                Vista resumida: el historial completo lo ves en WhatsApp, Messenger o Instagram según el canal.
               </p>
               <p className="mt-2 rounded-lg border border-[#7B2FF7]/20 bg-[#0A0118]/60 p-3 text-sm text-[#C4B5FD]">
                 Último mensaje:{" "}

@@ -22,15 +22,25 @@ model Empresa {
   whatsappToken      String?
   whatsappPhoneId    String?
   whatsappVerifyToken String?
+  // Facebook Page + Instagram (OAuth por empresa; token de la página de Meta)
+  metaPageId            String?
+  metaPageToken         String?
+  metaPageNombre        String?
+  metaInstagramId       String? // id de la cuenta profesional de Instagram (Graph API)
+  metaInstagramUsername String?
+  metaConectadoEn       DateTime?
   stockApiUrl         String? // GET JSON catálogo ERP (lib/stock-api.ts)
   stockApiToken       String?
   stockApiKeyHeader   String? // ej. X-API-Key; vacío + token = Bearer
   cotizacionIncluyeGrupos Boolean @default(true) // al armar cotizaciones, incluir chats de grupo WhatsApp
   creadoEn           DateTime @default(now())
 
-  agentes         Agente[]
-  conversaciones  Conversacion[]
-  archivos        ArchivoConocimiento[]
+  agentes          Agente[]
+  conversaciones   Conversacion[]
+  archivos         ArchivoConocimiento[]
+  contactos        Contacto[]
+  etapasCRM        EtapaCRM[]
+  reglasFollowUp   ReglaFollowUp[]
 
   @@map("empresas")
 }
@@ -91,11 +101,103 @@ model Conversacion {
   creditosUsados Float                @default(0)
   iniciadoEn     DateTime             @default(now())
   ultimoMensaje  DateTime             @default(now())
+  contactoId     String?
+  canal          CanalConversacion    @default(WHATSAPP)
 
-  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  agente  Agente? @relation(fields: [agenteId], references: [id], onDelete: SetNull)
+  empresa  Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  agente   Agente?   @relation(fields: [agenteId], references: [id], onDelete: SetNull)
+  contacto Contacto? @relation(fields: [contactoId], references: [id], onDelete: SetNull)
 
   @@map("conversaciones")
+}
+
+model Contacto {
+  id                 String         @id @default(cuid())
+  empresaId          String
+  numero             String
+  nombre             String?
+  email              String?
+  empresaCliente     String?
+  etapaId            String?
+  valorOportunidad   Float?
+  notas              String?        @db.Text
+  proximoSeguimiento DateTime?
+  ultimaInteraccion  DateTime       @default(now())
+  origen             OrigenContacto @default(WHATSAPP)
+  creadoEn           DateTime       @default(now())
+
+  empresa         Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  etapa           EtapaCRM?            @relation(fields: [etapaId], references: [id], onDelete: SetNull)
+  conversaciones  Conversacion[]
+  seguimientos    SeguimientoEnviado[]
+  historialEtapas HistorialEtapa[]
+
+  @@unique([empresaId, numero])
+  @@map("contactos")
+}
+
+model EtapaCRM {
+  id        String   @id @default(cuid())
+  empresaId String
+  nombre    String
+  color     String   @default("#7B2FF7")
+  orden     Int
+  esGanado  Boolean  @default(false)
+  esPerdido Boolean  @default(false)
+  creadoEn  DateTime @default(now())
+
+  empresa   Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  contactos Contacto[]
+
+  @@map("etapas_crm")
+}
+
+model HistorialEtapa {
+  id            String   @id @default(cuid())
+  contactoId    String
+  etapaAnterior String?
+  etapaNueva    String
+  cambiadoEn    DateTime @default(now())
+
+  contacto Contacto @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+
+  @@map("historial_etapas")
+}
+
+model ReglaFollowUp {
+  id                String         @id @default(cuid())
+  empresaId         String
+  nombre            String
+  activa            Boolean        @default(true)
+  disparador        TipoDisparador
+  diasEnEtapa       Int?
+  horasSinRespuesta Int?
+  etapaDisparoId    String?
+  usarIA            Boolean        @default(true)
+  promptMensaje     String?        @db.Text
+  mensajeFijo       String?        @db.Text
+  moverAEtapaId     String?
+  creadoEn          DateTime       @default(now())
+
+  empresa      Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  seguimientos SeguimientoEnviado[]
+
+  @@map("reglas_followup")
+}
+
+model SeguimientoEnviado {
+  id         String      @id @default(cuid())
+  reglaId    String
+  contactoId String
+  mensaje    String      @db.Text
+  estado     EstadoEnvio @default(PENDIENTE)
+  enviadoEn  DateTime?
+  creadoEn   DateTime    @default(now())
+
+  regla    ReglaFollowUp @relation(fields: [reglaId], references: [id], onDelete: Cascade)
+  contacto Contacto      @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+
+  @@map("seguimientos_enviados")
 }
 
 enum Rol {
@@ -126,4 +228,31 @@ enum AtencionHumanaEstado {
   NINGUNA // sin pedido de humano explícito en cola
   ACTIVA  // necesita atención humana (pendiente)
   RESUELTA // el equipo cerró el caso; la IA puede volver a responder en mensajes nuevos
+}
+
+enum OrigenContacto {
+  WHATSAPP
+  MANUAL
+  IMPORTADO
+  FACEBOOK
+  INSTAGRAM
+}
+
+enum CanalConversacion {
+  WHATSAPP
+  MESSENGER
+  INSTAGRAM
+}
+
+enum TipoDisparador {
+  TIEMPO_EN_ETAPA
+  SIN_RESPUESTA
+  ETAPA_ESPECIFICA
+  FECHA_PROGRAMADA
+}
+
+enum EstadoEnvio {
+  PENDIENTE
+  ENVIADO
+  ERROR
 }

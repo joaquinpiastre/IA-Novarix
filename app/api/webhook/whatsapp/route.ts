@@ -33,13 +33,16 @@ export async function POST(req: Request) {
         value?: {
           messages?: Array<{ type?: string; from?: string; text?: { body?: string } }>;
           metadata?: { phone_number_id?: string };
+          contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
         };
       }>;
     }>;
   };
 
-  const message = b.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const phoneNumberId = b.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+  const value = b.entry?.[0]?.changes?.[0]?.value;
+  const message = value?.messages?.[0];
+  const phoneNumberId = value?.metadata?.phone_number_id;
+  const nombreCliente = value?.contacts?.[0]?.profile?.name ?? null;
 
   if (!message || message.type !== "text" || !message.from || !message.text?.body || !phoneNumberId) {
     return Response.json({ status: "ignored" });
@@ -50,7 +53,13 @@ export async function POST(req: Request) {
   const esGrupo = typeof rawFrom === "string" && (rawFrom.includes("@g.us") || rawFrom.includes("g.us"));
   const textoMensaje = message.text.body;
 
-  void procesarMensajeWhatsApp({ numeroCliente, textoMensaje, phoneNumberId, esGrupo }).catch((e) =>
+  void procesarMensajeWhatsApp({
+    numeroCliente,
+    textoMensaje,
+    phoneNumberId,
+    esGrupo,
+    nombreCliente,
+  }).catch((e) =>
     console.error("WhatsApp process error", e)
   );
 

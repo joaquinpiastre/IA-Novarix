@@ -22,6 +22,7 @@ export default async function ConversacionesPage() {
 
   const initial: InboxRow[] = lista.map((c) => ({
     id: c.id,
+    canal: c.canal,
     numeroCliente: c.numeroCliente,
     nombreCliente: c.nombreCliente,
     ultimoMensaje: c.ultimoMensaje.toISOString(),
@@ -36,7 +37,7 @@ export default async function ConversacionesPage() {
   return (
     <PageShell title="Chats">
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[#C4B5FD]">
-        Todos los hilos de WhatsApp de tu empresa en una sola bandeja. Podés desactivar la IA por chat
+        Hilos de WhatsApp, Facebook Messenger e Instagram de tu empresa en una bandeja. Podés desactivar la IA por chat
         (por ejemplo conversaciones internas) y marcar cuándo un caso necesita humano o ya quedó resuelto.
       </p>
       <ConversacionesWhatsAppInbox initial={initial} />

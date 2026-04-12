@@ -12,7 +12,17 @@ export default withAuth(
       }
     }
 
-    if (path === "/" || path.startsWith("/agentes") || path.startsWith("/conversaciones") || path.startsWith("/conocimiento") || path.startsWith("/creditos") || path.startsWith("/configuracion")) {
+    if (
+      path === "/" ||
+      path.startsWith("/agentes") ||
+      path.startsWith("/conversaciones") ||
+      path.startsWith("/conocimiento") ||
+      path.startsWith("/creditos") ||
+      path.startsWith("/configuracion") ||
+      path.startsWith("/crm") ||
+      path.startsWith("/seguimientos") ||
+      path.startsWith("/estadisticas")
+    ) {
       if (token?.rol === "SUPERADMIN" && !req.cookies.get("novarix_impersonate")?.value) {
         return NextResponse.redirect(new URL("/admin", req.url));
       }
@@ -40,6 +50,12 @@ export const config = {
     "/conocimiento/:path*",
     "/creditos/:path*",
     "/configuracion/:path*",
+    "/crm",
+    "/crm/:path*",
+    "/seguimientos",
+    "/seguimientos/:path*",
+    "/estadisticas",
+    "/estadisticas/:path*",
     "/admin/:path*",
   ],
 };

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
+import { SESSION_KEY_AGENTE_GUARDADO } from "@/components/agentes/AgenteGuardadoBanner";
 
 type Props = { agenteId?: string };
 
@@ -19,6 +20,8 @@ export function AgenteForm({ agenteId }: Props) {
   const [codigoActivacion, setCodigoActivacion] = useState("");
   const [loading, setLoading] = useState(!!agenteId);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     if (!agenteId) return;
@@ -55,12 +58,32 @@ export function AgenteForm({ agenteId }: Props) {
     });
     setSaving(false);
     if (!r.ok) return;
-    const j = await r.json();
-    if (agenteId) {
-      router.refresh();
-    } else {
-      router.push(`/agentes/${j.id}`);
+    await r.json();
+    try {
+      sessionStorage.setItem(SESSION_KEY_AGENTE_GUARDADO, "1");
+    } catch {
+      /* ignore */
     }
+    router.push("/agentes");
+  }
+
+  async function onDelete() {
+    if (!agenteId) return;
+    const ok = window.confirm(
+      `¿Eliminar el agente "${nombre || "este agente"}"? Las conversaciones quedarán sin agente asignado y esta acción no se puede deshacer.`
+    );
+    if (!ok) return;
+    setDeleteError("");
+    setDeleting(true);
+    const r = await fetch(`/api/agentes/${agenteId}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setDeleteError(typeof j.error === "string" ? j.error : "No se pudo eliminar");
+      return;
+    }
+    router.push("/agentes");
+    router.refresh();
   }
 
   if (loading) return <p className="text-[#7C6FAE]">Cargando…</p>;
@@ -80,6 +103,8 @@ export function AgenteForm({ agenteId }: Props) {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           required
+          rows={24}
+          className="min-h-[22rem] resize-y"
         />
         <div className="flex flex-wrap gap-6">
           <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
@@ -107,7 +132,7 @@ export function AgenteForm({ agenteId }: Props) {
           onChange={(e) => setCodigoActivacion(e.target.value)}
           placeholder="Ej.: PROMO2025"
         />
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saving}>
             {saving ? "Guardando…" : "Guardar"}
           </Button>
@@ -115,6 +140,18 @@ export function AgenteForm({ agenteId }: Props) {
             Cancelar
           </Button>
         </div>
+        {agenteId ? (
+          <div className="mt-10 border-t border-[#7B2FF7]/20 pt-8">
+            <h3 className="mb-2 text-sm font-semibold text-[#C4B5FD]">Eliminar agente</h3>
+            <p className="mb-4 text-sm text-[#7C6FAE]">
+              Se borrará la configuración del agente. Los archivos de conocimiento vinculados quedarán sin agente (no se eliminan).
+            </p>
+            {deleteError ? <p className="mb-3 text-sm text-red-400">{deleteError}</p> : null}
+            <Button type="button" variant="danger" disabled={deleting} onClick={onDelete}>
+              {deleting ? "Eliminando…" : "Eliminar agente"}
+            </Button>
+          </div>
+        ) : null}
       </form>
     </Card>
   );

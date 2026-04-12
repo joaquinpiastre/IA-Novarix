@@ -9,6 +9,9 @@ import {
   BookOpen,
   Coins,
   Settings,
+  Users,
+  Bell,
+  BarChart2,
 } from "lucide-react";
 import { NovarixLogo } from "./NovarixLogo";
 import { SignOutButton } from "./SignOutButton";
@@ -17,6 +20,9 @@ const items = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/agentes", label: "Agentes", icon: Bot },
   { href: "/conversaciones", label: "Chats", icon: MessageSquare },
+  { href: "/crm", label: "CRM", icon: Users },
+  { href: "/seguimientos", label: "Seguimientos", icon: Bell },
+  { href: "/estadisticas", label: "Estadísticas", icon: BarChart2 },
   { href: "/conocimiento", label: "Conocimiento", icon: BookOpen },
   { href: "/creditos", label: "Créditos", icon: Coins },
   { href: "/configuracion", label: "Configuración", icon: Settings },
