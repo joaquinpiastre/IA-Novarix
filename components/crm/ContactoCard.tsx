@@ -11,6 +11,12 @@ export type ContactoKanban = {
   etapaId?: string | null;
 };
 
+/** CRM Kanban + filtros / vista lista */
+export type ContactoCrmFull = ContactoKanban & {
+  origen: string;
+  proximoSeguimiento: string | null;
+};
+
 function tiempoDesde(iso: string) {
   const d = new Date(iso).getTime();
   const diff = Date.now() - d;

@@ -10,7 +10,7 @@ import {
   BookOpen,
   Plug,
   Package,
-  MessageCircle,
+  Share2,
   Server,
   Database,
   Coins,
@@ -35,7 +35,7 @@ const sections: { title: string; items: Item[] }[] = [
       { href: "/admin/conocimiento", label: "Conocimiento", icon: BookOpen },
       { href: "/admin/integraciones", label: "Integraciones", icon: Plug },
       { href: "/admin/productos", label: "Productos / Stock", icon: Package },
-      { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle },
+      { href: "/admin/meta", label: "Meta (WA, IG, FB)", icon: Share2 },
     ],
   },
   {

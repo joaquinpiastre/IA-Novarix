@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
+import {
+  tiempoPromedioEnEtapaEntradaSalida,
+  transicionesPromedioEntreEtapasConsecutivas,
+  valorOportunidadSumaPorEtapa,
+  velocidadConversionProspectoAGanado,
+  valorPipelineResumenCalc,
+} from "@/lib/estadisticas-crm";
 
 function rangoDesdeQuery(url: URL): { desde: Date; hasta: Date } {
   const hasta = url.searchParams.get("hasta") ? new Date(url.searchParams.get("hasta")!) : new Date();
@@ -158,6 +165,20 @@ export async function GET(req: Request) {
     },
   });
 
+  const [
+    tiempoEnEtapaDetalle,
+    transicionesEtapas,
+    valorPorEtapa,
+    velocidadConv,
+    valorPipelineRes,
+  ] = await Promise.all([
+    tiempoPromedioEnEtapaEntradaSalida(ctx.empresaId),
+    transicionesPromedioEntreEtapasConsecutivas(ctx.empresaId),
+    valorOportunidadSumaPorEtapa(ctx.empresaId),
+    velocidadConversionProspectoAGanado(ctx.empresaId),
+    valorPipelineResumenCalc(ctx.empresaId),
+  ]);
+
   return NextResponse.json({
     contactosPorEtapa,
     tasaConversion,
@@ -169,5 +190,10 @@ export async function GET(req: Request) {
     ganadosEsteMes,
     seguimientosMes: { enviados: segEnviadosMes },
     proximosSeguimientosProgramados: proximosProgramados,
+    tiempoPromedioEnEtapaEntradaSalida: tiempoEnEtapaDetalle,
+    transicionesPromedioEtapas: transicionesEtapas,
+    valorOportunidadSumaPorEtapa: valorPorEtapa,
+    velocidadConversionProspectoAGanado: velocidadConv,
+    valorPipelineResumen: valorPipelineRes,
   });
 }

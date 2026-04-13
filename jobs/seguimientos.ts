@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import type { CanalConversacion } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   generarMensajeFollowUp,
@@ -6,7 +7,14 @@ import {
   encontrarContactosElegibles,
 } from "@/lib/seguimientos";
 import { moverContactoEtapa } from "@/lib/crm";
+import { enviarMensajeMessenger, enviarMensajeInstagram } from "@/lib/meta-graph";
 import { enviarMensajeWhatsApp } from "@/lib/whatsapp";
+
+function canalSeguimientoDesdeNumero(numero: string): CanalConversacion {
+  if (numero.startsWith("ig:")) return "INSTAGRAM";
+  if (numero.startsWith("m:")) return "MESSENGER";
+  return "WHATSAPP";
+}
 
 async function nombreEtapa(etapaId: string | null): Promise<string | null> {
   if (!etapaId) return null;
@@ -34,37 +42,76 @@ export async function ejecutarSeguimientosJob() {
         const texto = mensaje.trim();
         if (!texto) continue;
 
-        if (contacto.numero.startsWith("m:") || contacto.numero.startsWith("ig:")) {
-          continue;
-        }
+        const empresa = regla.empresa;
+        const canal = canalSeguimientoDesdeNumero(contacto.numero);
+        let res: Response;
 
-        if (!regla.empresa.whatsappPhoneId || !regla.empresa.whatsappToken) {
-          await prisma.seguimientoEnviado.create({
-            data: {
-              reglaId: regla.id,
-              contactoId: contacto.id,
-              mensaje: texto,
-              estado: "ERROR",
-            },
+        if (canal === "INSTAGRAM") {
+          const recipient = contacto.numero.slice(3).trim();
+          if (!recipient || !empresa.metaPageToken || !empresa.metaInstagramId) {
+            await prisma.seguimientoEnviado.create({
+              data: {
+                reglaId: regla.id,
+                contactoId: contacto.id,
+                mensaje: texto,
+                estado: "ERROR",
+                canal: "INSTAGRAM",
+              },
+            });
+            continue;
+          }
+          res = await enviarMensajeInstagram(
+            empresa.metaPageToken,
+            empresa.metaInstagramId,
+            recipient,
+            texto
+          );
+        } else if (canal === "MESSENGER") {
+          const recipient = contacto.numero.slice(2).trim();
+          if (!recipient || !empresa.metaPageToken) {
+            await prisma.seguimientoEnviado.create({
+              data: {
+                reglaId: regla.id,
+                contactoId: contacto.id,
+                mensaje: texto,
+                estado: "ERROR",
+                canal: "MESSENGER",
+              },
+            });
+            continue;
+          }
+          res = await enviarMensajeMessenger(empresa.metaPageToken, recipient, texto);
+        } else {
+          if (!empresa.whatsappPhoneId || !empresa.whatsappToken) {
+            await prisma.seguimientoEnviado.create({
+              data: {
+                reglaId: regla.id,
+                contactoId: contacto.id,
+                mensaje: texto,
+                estado: "ERROR",
+                canal: "WHATSAPP",
+              },
+            });
+            continue;
+          }
+          res = await enviarMensajeWhatsApp({
+            phoneNumberId: empresa.whatsappPhoneId,
+            accessToken: empresa.whatsappToken,
+            to: contacto.numero,
+            text: texto,
           });
-          continue;
         }
 
-        const res = await enviarMensajeWhatsApp({
-          phoneNumberId: regla.empresa.whatsappPhoneId,
-          accessToken: regla.empresa.whatsappToken,
-          to: contacto.numero,
-          text: texto,
-        });
         if (!res.ok) {
           const errBody = await res.text().catch(() => "");
-          console.error("[CRON] WhatsApp API error", res.status, errBody);
+          console.error("[CRON] envío seguimiento API error", canal, res.status, errBody);
           await prisma.seguimientoEnviado.create({
             data: {
               reglaId: regla.id,
               contactoId: contacto.id,
               mensaje: texto,
               estado: "ERROR",
+              canal,
             },
           });
           continue;
@@ -77,6 +124,7 @@ export async function ejecutarSeguimientosJob() {
             mensaje: texto,
             estado: "ENVIADO",
             enviadoEn: new Date(),
+            canal,
           },
         });
 
@@ -93,6 +141,7 @@ export async function ejecutarSeguimientosJob() {
             contactoId: contacto.id,
             mensaje: "",
             estado: "ERROR",
+            canal: canalSeguimientoDesdeNumero(contacto.numero),
           },
         });
       }

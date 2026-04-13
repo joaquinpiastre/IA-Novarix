@@ -86,5 +86,29 @@ export async function encontrarContactosElegibles(reglaId: string) {
     });
   }
 
+  if (regla.disparador === "ETAPA_ESPECIFICA" && regla.etapaDisparoId) {
+    const haceUnaHora = new Date(ahora.getTime() - 60 * 60 * 1000);
+    const candidatos = await prisma.contacto.findMany({
+      where: {
+        empresaId: regla.empresaId,
+        etapaId: regla.etapaDisparoId,
+        seguimientos: { none: { reglaId: regla.id } },
+      },
+      include: {
+        historialEtapas: {
+          orderBy: { cambiadoEn: "desc" },
+          take: 1,
+        },
+      },
+    });
+    return candidatos.filter((c) => {
+      const last = c.historialEtapas[0];
+      if (!last) return false;
+      return (
+        last.etapaNueva === regla.etapaDisparoId && last.cambiadoEn.getTime() >= haceUnaHora.getTime()
+      );
+    });
+  }
+
   return [];
 }

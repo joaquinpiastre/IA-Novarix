@@ -26,7 +26,31 @@ type ApiData = {
   ganadosEsteMes: number;
   seguimientosMes: { enviados: number };
   proximosSeguimientosProgramados: number;
+  tiempoPromedioEnEtapaEntradaSalida?: {
+    etapaId: string;
+    etapa: string;
+    diasPromedio: number | null;
+    muestras: number;
+  }[];
+  transicionesPromedioEtapas?: {
+    deEtapa: string;
+    aEtapa: string;
+    diasPromedio: number | null;
+    muestras: number;
+  }[];
+  valorOportunidadSumaPorEtapa?: { etapaId: string; etapa: string; sumaValor: number }[];
+  velocidadConversionProspectoAGanado?: { diasPromedio: number | null; muestras: number };
+  valorPipelineResumen?: {
+    totalValorNumerico: number;
+    pipelineAbierto: number;
+    ganadoEsteMes: number;
+    enNegociacion: number;
+  };
 };
+
+function fmtArs(n: number) {
+  return `$${n.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+}
 
 function toIso(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -120,6 +144,116 @@ export function EstadisticasClient() {
       />
 
       <EmbudoVentas etapas={embudo} />
+
+      {data.transicionesPromedioEtapas != null ? (
+        <Card>
+          <h2 className="mb-2 text-lg font-semibold text-white">Tiempo promedio por etapa</h2>
+          <p className="mb-4 text-xs text-[#7C6FAE]">
+            Días entre la primera vez que el contacto entra en una etapa y la primera vez que entra en la
+            siguiente (orden del embudo). Basado en <strong className="text-[#C4B5FD]">HistorialEtapa</strong>.
+          </p>
+          <ul className="space-y-2 text-sm text-[#C4B5FD]">
+            {data.transicionesPromedioEtapas.length === 0 ? (
+              <li className="text-[#7C6FAE]">Necesitás al menos dos etapas y movimientos en el historial para calcular transiciones.</li>
+            ) : null}
+            {data.transicionesPromedioEtapas.map((t) => (
+              <li key={`${t.deEtapa}-${t.aEtapa}`} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#7B2FF7]/10 py-2">
+                <span>
+                  <span className="text-white">{t.deEtapa}</span>
+                  <span className="mx-1 text-[#7C6FAE]">→</span>
+                  <span className="text-white">{t.aEtapa}</span>
+                  {t.muestras > 0 ? (
+                    <span className="ml-2 text-[10px] text-[#7C6FAE]">({t.muestras} contactos)</span>
+                  ) : null}
+                </span>
+                <span className="font-mono text-white">{t.diasPromedio != null ? `${t.diasPromedio} días` : "—"}</span>
+              </li>
+            ))}
+          </ul>
+          {data.tiempoPromedioEnEtapaEntradaSalida && data.tiempoPromedioEnEtapaEntradaSalida.some((x) => x.muestras > 0) ? (
+            <div className="mt-4 border-t border-[#7B2FF7]/20 pt-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#C026D3]">
+                Días promedio dentro de cada etapa (hasta el próximo movimiento)
+              </p>
+              <ul className="max-h-36 space-y-1 overflow-y-auto text-xs text-[#C4B5FD]">
+                {data.tiempoPromedioEnEtapaEntradaSalida.map((r) =>
+                  r.muestras > 0 ? (
+                    <li key={r.etapaId} className="flex justify-between gap-2">
+                      <span className="text-white">{r.etapa}</span>
+                      <span>
+                        {r.diasPromedio != null ? `${r.diasPromedio} días` : "—"}{" "}
+                        <span className="text-[#7C6FAE]">({r.muestras})</span>
+                      </span>
+                    </li>
+                  ) : null
+                )}
+              </ul>
+            </div>
+          ) : null}
+          {data.velocidadConversionProspectoAGanado &&
+          (data.velocidadConversionProspectoAGanado.muestras > 0 ||
+            data.velocidadConversionProspectoAGanado.diasPromedio != null) ? (
+            <p className="mt-4 border-t border-[#7B2FF7]/20 pt-3 text-xs text-[#C4B5FD]">
+              <strong className="text-white">Velocidad de conversión</strong> (desde etapa inicial del embudo
+              hasta &quot;Ganado&quot;):{" "}
+              <span className="text-white">
+                {data.velocidadConversionProspectoAGanado.diasPromedio != null
+                  ? `${data.velocidadConversionProspectoAGanado.diasPromedio} días promedio`
+                  : "—"}
+              </span>
+              {data.velocidadConversionProspectoAGanado.muestras > 0 ? (
+                <span className="text-[#7C6FAE]">
+                  {" "}
+                  · {data.velocidadConversionProspectoAGanado.muestras} contacto(s) con cierre ganado
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {data.valorPipelineResumen ? (
+        <Card>
+          <h2 className="mb-2 text-lg font-semibold text-white">Valor en pipeline</h2>
+          <p className="mb-4 text-xs text-[#7C6FAE]">
+            Suma de <strong className="text-[#C4B5FD]">valorOportunidad</strong> con valor cargado. Pipeline
+            abierto = sin etapa ganada ni perdida.
+          </p>
+          <ul className="space-y-2 text-sm text-[#C4B5FD]">
+            <li className="flex justify-between border-b border-[#7B2FF7]/10 py-2">
+              <span>Total con monto</span>
+              <span className="font-medium text-white">{fmtArs(data.valorPipelineResumen.totalValorNumerico)}</span>
+            </li>
+            <li className="flex justify-between border-b border-[#7B2FF7]/10 py-2">
+              <span>Pipeline abierto</span>
+              <span className="font-medium text-white">{fmtArs(data.valorPipelineResumen.pipelineAbierto)}</span>
+            </li>
+            <li className="flex justify-between border-b border-[#7B2FF7]/10 py-2">
+              <span>Ganado este mes</span>
+              <span className="font-medium text-emerald-300">{fmtArs(data.valorPipelineResumen.ganadoEsteMes)}</span>
+            </li>
+            <li className="flex justify-between py-2">
+              <span>En negociación</span>
+              <span className="font-medium text-white">{fmtArs(data.valorPipelineResumen.enNegociacion)}</span>
+            </li>
+          </ul>
+          {data.valorOportunidadSumaPorEtapa && data.valorOportunidadSumaPorEtapa.length > 0 ? (
+            <div className="mt-4 border-t border-[#7B2FF7]/20 pt-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#C026D3]">
+                Suma por etapa (solo con valor)
+              </p>
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-[#C4B5FD]">
+                {data.valorOportunidadSumaPorEtapa.map((r) => (
+                  <li key={r.etapaId} className="flex justify-between gap-2">
+                    <span>{r.etapa}</span>
+                    <span className="shrink-0 text-white">{fmtArs(r.sumaValor)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-white">Conversión por etapa</h2>

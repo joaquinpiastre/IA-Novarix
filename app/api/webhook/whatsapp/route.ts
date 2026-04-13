@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     entry?: Array<{
       changes?: Array<{
         value?: {
-          messages?: Array<{ type?: string; from?: string; text?: { body?: string } }>;
+          messages?: Array<Record<string, unknown> & { type?: string; from?: string }>;
           metadata?: { phone_number_id?: string };
           contacts?: Array<{ wa_id?: string; profile?: { name?: string } }>;
         };
@@ -44,24 +44,32 @@ export async function POST(req: Request) {
   const phoneNumberId = value?.metadata?.phone_number_id;
   const nombreCliente = value?.contacts?.[0]?.profile?.name ?? null;
 
-  if (!message || message.type !== "text" || !message.from || !message.text?.body || !phoneNumberId) {
+  if (!message?.from || !phoneNumberId || !message.type) {
+    return Response.json({ status: "ignored" });
+  }
+
+  const t = message.type;
+  if (t === "text" && !(message as { text?: { body?: string } }).text?.body?.trim()) {
+    return Response.json({ status: "ignored" });
+  }
+  if (t === "audio" && !(message as { audio?: { id?: string } }).audio?.id) {
+    return Response.json({ status: "ignored" });
+  }
+  if (t === "image" && !(message as { image?: { id?: string } }).image?.id) {
     return Response.json({ status: "ignored" });
   }
 
   const rawFrom = message.from;
   const numeroCliente = rawFrom;
   const esGrupo = typeof rawFrom === "string" && (rawFrom.includes("@g.us") || rawFrom.includes("g.us"));
-  const textoMensaje = message.text.body;
 
   void procesarMensajeWhatsApp({
     numeroCliente,
-    textoMensaje,
     phoneNumberId,
     esGrupo,
     nombreCliente,
-  }).catch((e) =>
-    console.error("WhatsApp process error", e)
-  );
+    mensaje: message,
+  }).catch((e) => console.error("WhatsApp process error", e));
 
   return Response.json({ status: "ok" });
 }

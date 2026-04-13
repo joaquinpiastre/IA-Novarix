@@ -38,3 +38,54 @@ export function verificarFirmaMeta(rawBody: string, signature: string | null): b
     return false;
   }
 }
+
+/**
+ * WhatsApp envía un media_id; hay que pedir la URL a Graph y descargar el binario.
+ */
+export async function descargarMediaWhatsApp(
+  mediaId: string,
+  whatsappToken: string
+): Promise<{ buffer: Buffer; mimeType: string; extension: string }> {
+  const metaResponse = await fetch(`https://graph.facebook.com/${API_VERSION}/${mediaId}`, {
+    headers: { Authorization: `Bearer ${whatsappToken}` },
+  });
+
+  if (!metaResponse.ok) {
+    throw new Error(`Error obteniendo media URL: ${metaResponse.status}`);
+  }
+
+  const mediaData = (await metaResponse.json()) as { url?: string; mime_type?: string };
+  const mediaUrl = mediaData.url;
+  const mimeType = mediaData.mime_type || "application/octet-stream";
+  if (!mediaUrl) {
+    throw new Error("Respuesta Meta sin url de media");
+  }
+
+  const extensiones: Record<string, string> = {
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp4": "m4a",
+    "audio/aac": "aac",
+    "audio/wav": "wav",
+    "audio/webm": "webm",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+  };
+  const extension = extensiones[mimeType] || "bin";
+
+  const archivoResponse = await fetch(mediaUrl, {
+    headers: { Authorization: `Bearer ${whatsappToken}` },
+  });
+
+  if (!archivoResponse.ok) {
+    throw new Error(`Error descargando archivo: ${archivoResponse.status}`);
+  }
+
+  const arrayBuffer = await archivoResponse.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return { buffer, mimeType, extension };
+}

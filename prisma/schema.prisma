@@ -186,13 +186,14 @@ model ReglaFollowUp {
 }
 
 model SeguimientoEnviado {
-  id         String      @id @default(cuid())
+  id         String               @id @default(cuid())
   reglaId    String
   contactoId String
-  mensaje    String      @db.Text
-  estado     EstadoEnvio @default(PENDIENTE)
+  mensaje    String               @db.Text
+  estado     EstadoEnvio          @default(PENDIENTE)
   enviadoEn  DateTime?
-  creadoEn   DateTime    @default(now())
+  creadoEn   DateTime             @default(now())
+  canal      CanalConversacion?
 
   regla    ReglaFollowUp @relation(fields: [reglaId], references: [id], onDelete: Cascade)
   contacto Contacto      @relation(fields: [contactoId], references: [id], onDelete: Cascade)

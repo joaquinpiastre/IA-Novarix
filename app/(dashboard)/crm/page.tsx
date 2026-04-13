@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { getEffectiveEmpresaId } from "@/lib/session-empresa";
 import { prisma } from "@/lib/db";
 import { PageShell } from "@/components/layout/PageShell";
-import { CrmBoard } from "@/components/crm/CrmBoard";
+import { CrmWorkspace } from "@/components/crm/CrmWorkspace";
 import { asegurarEtapasPorDefecto } from "@/lib/crm";
 
 export default async function CrmPage() {
@@ -31,11 +31,13 @@ export default async function CrmPage() {
     valorOportunidad: c.valorOportunidad,
     ultimaInteraccion: c.ultimaInteraccion.toISOString(),
     etapaId: c.etapaId,
+    origen: c.origen,
+    proximoSeguimiento: c.proximoSeguimiento?.toISOString() ?? null,
   }));
 
   return (
     <PageShell title="CRM">
-      <CrmBoard
+      <CrmWorkspace
         etapas={etapas.map((e) => ({
           id: e.id,
           nombre: e.nombre,
