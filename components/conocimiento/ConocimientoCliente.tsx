@@ -24,6 +24,29 @@ type CatalogoDesdeWebRespuesta = {
   imagenesDetectadas?: number;
 };
 
+function parseCatalogoDesdeWebJson(raw: string): CatalogoDesdeWebRespuesta {
+  const vacio: CatalogoDesdeWebRespuesta = {};
+  if (!raw.trim()) return vacio;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return vacio;
+    const o = parsed as Record<string, unknown>;
+    const out: CatalogoDesdeWebRespuesta = {};
+    if (typeof o.error === "string") out.error = o.error;
+    if (o.archivo !== null && typeof o.archivo === "object" && !Array.isArray(o.archivo)) {
+      const a = o.archivo as Record<string, unknown>;
+      if (typeof a.nombre === "string") out.archivo = { nombre: a.nombre };
+      else out.archivo = {};
+    }
+    if (typeof o.imagenesDetectadas === "number" && Number.isFinite(o.imagenesDetectadas)) {
+      out.imagenesDetectadas = o.imagenesDetectadas;
+    }
+    return out;
+  } catch {
+    return vacio;
+  }
+}
+
 export function ConocimientoCliente({
   archivos: initial,
   agentes,
@@ -87,24 +110,20 @@ export function ConocimientoCliente({
     });
     setImportandoWeb(false);
     const raw = await r.text();
-    let j: CatalogoDesdeWebRespuesta = {};
-    try {
-      j = raw ? (JSON.parse(raw) as CatalogoDesdeWebRespuesta) : {};
-    } catch {
-      j = {};
-    }
+    const data = parseCatalogoDesdeWebJson(raw);
     if (!r.ok) {
       const fallback =
-        raw && !j.error
+        raw && !data.error
           ? raw.slice(0, 280).replace(/\s+/g, " ").trim()
           : "";
-      setMsgWeb(j.error ?? (fallback ? `Error ${r.status}: ${fallback}` : "No se pudo importar."));
+      setMsgWeb(data.error ?? (fallback ? `Error ${r.status}: ${fallback}` : "No se pudo importar."));
       return;
     }
+    const nombreOk = data.archivo?.nombre ?? "OK";
+    const nImg = data.imagenesDetectadas;
+    const parteImg = typeof nImg === "number" ? ` · ${nImg} imágenes detectadas` : "";
     setUrlWeb("");
-    setMsgWeb(
-      `Importado: ${j.archivo?.nombre ?? "OK"}${typeof j.imagenesDetectadas === "number" ? ` · ${j.imagenesDetectadas} imágenes detectadas` : ""}.`
-    );
+    setMsgWeb(`Importado: ${nombreOk}${parteImg}.`);
     router.refresh();
   }
 
