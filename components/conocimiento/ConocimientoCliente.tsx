@@ -17,6 +17,13 @@ type ArchivoRow = ArchivoConocimiento & {
   agente: { nombre: string; id: string } | null;
 };
 
+/** Respuesta JSON de POST /api/catalogo/desde-web (éxito o error). */
+type CatalogoDesdeWebRespuesta = {
+  error?: string;
+  archivo?: { nombre?: string };
+  imagenesDetectadas?: number;
+};
+
 export function ConocimientoCliente({
   archivos: initial,
   agentes,
@@ -80,14 +87,9 @@ export function ConocimientoCliente({
     });
     setImportandoWeb(false);
     const raw = await r.text();
-    type DesdeWebJson = {
-      error?: string;
-      archivo?: { nombre?: string };
-      imagenesDetectadas?: number;
-    };
-    let j: DesdeWebJson = {};
+    let j: CatalogoDesdeWebRespuesta = {};
     try {
-      j = raw ? (JSON.parse(raw) as DesdeWebJson) : {};
+      j = raw ? (JSON.parse(raw) as CatalogoDesdeWebRespuesta) : {};
     } catch {
       j = {};
     }
