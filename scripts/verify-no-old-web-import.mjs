@@ -1,6 +1,6 @@
 /**
- * Falla si el código de import web volvió al patrón viejo (j.archivo) o falta el módulo nuevo.
- * Tras renombrar el componente, también exige que NO exista el .tsx viejo (evita builds con dos fuentes).
+ * Asegura que no quede el bug de tipos con j.archivo: Workspace tiene la lógica;
+ * ConocimientoCliente.tsx solo re-exporta (shim).
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -8,29 +8,40 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const conocimientoDir = path.join(root, "components", "conocimiento");
-const nuevo = path.join(conocimientoDir, "ConocimientoWorkspace.tsx");
-const viejo = path.join(conocimientoDir, "ConocimientoCliente.tsx");
+const dir = path.join(root, "components", "conocimiento");
+const workspace = path.join(dir, "ConocimientoWorkspace.tsx");
+const shim = path.join(dir, "ConocimientoCliente.tsx");
 
-if (fs.existsSync(viejo)) {
-  console.error("[verify] Existe todavía ConocimientoCliente.tsx — borrálo y usá solo ConocimientoWorkspace.tsx.");
+if (!fs.existsSync(workspace)) {
+  console.error("[verify] Falta:", workspace);
   process.exit(1);
 }
 
-if (!fs.existsSync(nuevo)) {
-  console.error("[verify] Falta:", nuevo);
+const ws = fs.readFileSync(workspace, "utf8");
+if (ws.includes("j.archivo")) {
+  console.error("[verify] ConocimientoWorkspace.tsx no debe contener j.archivo.");
+  process.exit(1);
+}
+if (!ws.includes("catalogo-desde-web-client")) {
+  console.error("[verify] ConocimientoWorkspace debe importar catalogo-desde-web-client.");
   process.exit(1);
 }
 
-const s = fs.readFileSync(nuevo, "utf8");
-
-if (s.includes("j.archivo")) {
-  console.error("[verify] ConocimientoWorkspace.tsx contiene j.archivo (código viejo).");
+if (!fs.existsSync(shim)) {
+  console.error("[verify] Falta shim:", shim);
   process.exit(1);
 }
-
-if (!s.includes("catalogo-desde-web-client")) {
-  console.error("[verify] Falta import de @/lib/catalogo-desde-web-client.");
+const sh = fs.readFileSync(shim, "utf8");
+if (sh.includes("j.archivo")) {
+  console.error("[verify] ConocimientoCliente.tsx (shim) no debe contener j.archivo.");
+  process.exit(1);
+}
+if (!sh.includes("ConocimientoWorkspace")) {
+  console.error("[verify] ConocimientoCliente.tsx debe re-exportar desde ConocimientoWorkspace.");
+  process.exit(1);
+}
+if (sh.includes("parseCatalogoDesdeWebJson") || sh.includes("useState")) {
+  console.error("[verify] ConocimientoCliente.tsx debe ser solo re-export, sin lógica duplicada.");
   process.exit(1);
 }
 
@@ -43,14 +54,10 @@ if (!fs.existsSync(lib)) {
 const page = path.join(root, "app", "(dashboard)", "conocimiento", "page.tsx");
 if (fs.existsSync(page)) {
   const p = fs.readFileSync(page, "utf8");
-  if (p.includes("ConocimientoCliente.tsx") || p.includes("/ConocimientoCliente\"")) {
-    console.error("[verify] page.tsx sigue importando la ruta vieja ConocimientoCliente.");
-    process.exit(1);
-  }
-  if (!p.includes("ConocimientoWorkspace")) {
-    console.error("[verify] page.tsx debe importar ConocimientoWorkspace.");
+  if (!p.includes("@/components/conocimiento/ConocimientoCliente")) {
+    console.error("[verify] page.tsx debe importar desde @/components/conocimiento/ConocimientoCliente");
     process.exit(1);
   }
 }
 
-console.log("[verify] Conocimiento web OK (Workspace, sin archivo viejo).");
+console.log("[verify] Conocimiento: shim + Workspace OK.");

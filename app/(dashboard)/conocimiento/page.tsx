@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { getEffectiveEmpresaId } from "@/lib/session-empresa";
 import { prisma } from "@/lib/db";
 import { PageShell } from "@/components/layout/PageShell";
-import { ConocimientoCliente } from "@/components/conocimiento/ConocimientoWorkspace";
+import { ConocimientoCliente } from "@/components/conocimiento/ConocimientoCliente";
 
 export default async function ConocimientoPage() {
   const session = await getServerSession(authOptions);
