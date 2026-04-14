@@ -104,6 +104,10 @@ export async function procesarMensajeMeta(input: {
 
   const conv = await prisma.conversacion.findUniqueOrThrow({ where: { id: convId } });
 
+  if (empresa.chatIaPausado) {
+    return;
+  }
+
   const bloquear =
     conv.iaHabilitada === false ||
     colaHumanaBloqueaIa({ estado: conv.estado, atencionHumana: conv.atencionHumana });

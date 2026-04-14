@@ -16,6 +16,7 @@ export function ConfiguracionForm() {
   const [stockToken, setStockToken] = useState("");
   const [stockHeader, setStockHeader] = useState("");
   const [cotizacionIncluyeGrupos, setCotizacionIncluyeGrupos] = useState(true);
+  const [chatIaPausado, setChatIaPausado] = useState(false);
   const [actual, setActual] = useState("");
   const [nueva, setNueva] = useState("");
   const [msg, setMsg] = useState("");
@@ -36,6 +37,7 @@ export function ConfiguracionForm() {
         setStockHeader(e.stockApiKeyHeader ?? "");
         setStockToken("");
         setCotizacionIncluyeGrupos(e.cotizacionIncluyeGrupos !== false);
+        setChatIaPausado(e.chatIaPausado === true);
       }
       setLoading(false);
     })();
@@ -57,6 +59,17 @@ export function ConfiguracionForm() {
     });
     setMsg(r.ok ? "Guardado." : "Error al guardar.");
  }
+
+  async function guardarChatIaPausado(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+    const r = await fetch("/api/empresa", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatIaPausado }),
+    });
+    setMsg(r.ok ? (chatIaPausado ? "IA pausada: no se enviarán respuestas automáticas." : "IA activa: el chat vuelve a responder.") : "Error al guardar.");
+  }
 
   async function guardarCotizacionPreferencias(e: React.FormEvent) {
     e.preventDefault();
@@ -137,6 +150,28 @@ export function ConfiguracionForm() {
           <Input label="Email" value={email} disabled className="opacity-60" />
           <p className="text-xs text-[#7C6FAE]">El email no se puede cambiar desde acá.</p>
           <Button type="submit">Guardar datos</Button>
+        </form>
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold text-white">Pausar respuestas de la IA</h2>
+        <p className="mb-4 text-sm leading-relaxed text-[#C4B5FD]">
+          Activá esta opción si querés hacer cambios o si algo falla: los mensajes de clientes se siguen
+          guardando en conversaciones, pero <strong className="text-white">no</strong> se llama a la IA ni
+          se envían respuestas por WhatsApp, Messenger ni Instagram. El endpoint de prueba de IA también queda
+          bloqueado.
+        </p>
+        <form onSubmit={guardarChatIaPausado} className="space-y-4">
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-[#C4B5FD]">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-[#7B2FF7]/40"
+              checked={chatIaPausado}
+              onChange={(e) => setChatIaPausado(e.target.checked)}
+            />
+            <span>Pausar chat con IA (empresa completa)</span>
+          </label>
+          <Button type="submit">{chatIaPausado ? "Guardar (quedará pausado)" : "Guardar (quedará activo)"}</Button>
         </form>
       </Card>
 

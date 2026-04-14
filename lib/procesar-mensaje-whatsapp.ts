@@ -303,8 +303,9 @@ export async function procesarMensajeWhatsApp(input: {
 
   if (skipOpenAi) {
     const bloquearInicial = convPrev ? conversacionBloqueaIa(convPrev) : false;
+    const sinRespuestaAuto = bloquearInicial || empresa.chatIaPausado;
     const userContent = `[FALLBACK] ${resolved.notaInterna ?? "Mensaje no soportado"}`;
-    const userTurn: Msg[] = bloquearInicial
+    const userTurn: Msg[] = sinRespuestaAuto
       ? [...mensajesPrev, { role: "user", content: userContent, tipo: "fallback", timestamp: ts }]
       : [
           ...mensajesPrev,
@@ -348,7 +349,7 @@ export async function procesarMensajeWhatsApp(input: {
       convId = convPrev.id;
     }
 
-    if (!bloquearInicial && empresa.whatsappPhoneId) {
+    if (!sinRespuestaAuto && empresa.whatsappPhoneId) {
       await enviarMensajeWhatsApp({
         phoneNumberId: input.phoneNumberId,
         accessToken: empresa.whatsappToken,
@@ -417,6 +418,10 @@ export async function procesarMensajeWhatsApp(input: {
   }
 
   const conv = await prisma.conversacion.findUniqueOrThrow({ where: { id: convId } });
+
+  if (empresa.chatIaPausado) {
+    return;
+  }
 
   const bloquear =
     conv.iaHabilitada === false ||

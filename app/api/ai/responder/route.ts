@@ -33,9 +33,16 @@ export async function POST(req: Request) {
         stockApiUrl: true,
         stockApiToken: true,
         stockApiKeyHeader: true,
+        chatIaPausado: true,
       },
     }),
   ]);
+  if (empresaRow?.chatIaPausado) {
+    return NextResponse.json(
+      { error: "El chat con IA está pausado para esta empresa. Reactivalo en Configuración." },
+      { status: 403 }
+    );
+  }
   const desdeArchivos = archivos.map((a) => (a.contenido ? a.contenido : `[${a.nombre}]`)).join("\n\n");
   const desdeErp =
     empresaRow && agente.busquedaProductos !== false

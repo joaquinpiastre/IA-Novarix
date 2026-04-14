@@ -38,6 +38,7 @@ model Empresa {
   stockApiToken       String?
   stockApiKeyHeader   String? // ej. X-API-Key; vacío + token = Bearer
   cotizacionIncluyeGrupos Boolean @default(true) // al armar cotizaciones, incluir chats de grupo WhatsApp
+  chatIaPausado      Boolean  @default(false) // true: sin OpenAI ni respuestas auto (WhatsApp / Meta)
   creadoEn           DateTime @default(now())
 
   agentes          Agente[]
