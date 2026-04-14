@@ -22,6 +22,7 @@ type ArchivoRow = ArchivoConocimiento & {
   agente: { nombre: string; id: string } | null;
 };
 
+/** UI base de conocimiento (archivos, notas, import web). Archivo renombrado para evitar builds con fuente vieja en caché. */
 export function ConocimientoCliente({
   archivos: initial,
   agentes,
@@ -124,8 +125,8 @@ export function ConocimientoCliente({
     });
     setGuardandoNota(false);
     if (!r.ok) {
-      const j = await r.json().catch(() => ({}));
-      setMsgNota(j.error ?? "No se pudo guardar.");
+      const errBody = (await r.json().catch(() => ({}))) as { error?: string };
+      setMsgNota(errBody.error ?? "No se pudo guardar.");
       return;
     }
     setTituloNota("");

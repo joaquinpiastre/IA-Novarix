@@ -22,7 +22,7 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Build (sin DB real; variables mínimas)
-        run: npx prisma generate && npx next build
+        run: npx prisma generate && node scripts/verify-no-old-web-import.mjs && npx next build
         env:
           DATABASE_URL: "postgresql://user:pass@localhost:5432/ci_placeholder"
           NEXTAUTH_SECRET: "ci-secret-at-least-32-chars-long-xx"
