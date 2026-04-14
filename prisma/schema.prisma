@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Multi-tenant: toda lectura/escritura de datos de cliente debe ir filtrada por `empresaId` del contexto
+// autenticado (ver `requireEmpresaContext` en lib/api-auth.ts). No mezclar tenants en una sola query.
+// Evolución de BD: solo `prisma migrate dev` / `migrate deploy` con SQL versionado en prisma/migrations;
+// no usar `db push` contra bases con datos reales (riesgo de drift y pérdida). Ver docs/DATABASE.md.
+
 // Tabla "empresas": el flag de cuenta habilitada es el campo "activo" (no existe columna "existe").
 model Empresa {
   id                 String   @id @default(cuid())
@@ -67,6 +72,7 @@ model Agente {
   archivos       ArchivoConocimiento[]
   conversaciones Conversacion[]
 
+  @@index([empresaId])
   @@map("agentes")
 }
 
@@ -83,6 +89,7 @@ model ArchivoConocimiento {
   empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   agente  Agente? @relation(fields: [agenteId], references: [id], onDelete: SetNull)
 
+  @@index([empresaId])
   @@map("archivos_conocimiento")
 }
 
@@ -108,6 +115,7 @@ model Conversacion {
   agente   Agente?   @relation(fields: [agenteId], references: [id], onDelete: SetNull)
   contacto Contacto? @relation(fields: [contactoId], references: [id], onDelete: SetNull)
 
+  @@index([empresaId])
   @@map("conversaciones")
 }
 
@@ -149,6 +157,7 @@ model EtapaCRM {
   empresa   Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   contactos Contacto[]
 
+  @@index([empresaId])
   @@map("etapas_crm")
 }
 
@@ -182,6 +191,7 @@ model ReglaFollowUp {
   empresa      Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   seguimientos SeguimientoEnviado[]
 
+  @@index([empresaId])
   @@map("reglas_followup")
 }
 

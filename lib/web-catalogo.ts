@@ -40,13 +40,20 @@ export async function extraerContenidoWebParaCatalogo(url: string): Promise<Extr
       headers: {
         Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
         "User-Agent":
-          "Mozilla/5.0 (compatible; NovarixBot/1.0; +https://novarix.digital) catalog-import",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
       },
       cache: "no-store",
     });
     urlFinal = r.url || trimmed;
     if (!esUrlSeguraParaFetch(urlFinal)) {
       throw new Error("La redirección llevó a una URL no permitida");
+    }
+    if (!r.ok) {
+      const hint =
+        r.status === 403 || r.status === 401
+          ? " (a veces los sitios bloquean peticiones automáticas; probá de nuevo o usá Excel / API de stock)"
+          : "";
+      throw new Error(`El sitio respondió HTTP ${r.status}${r.statusText ? ` ${r.statusText}` : ""}.${hint}`);
     }
     const buf = Buffer.from(await r.arrayBuffer());
     const slice = buf.subarray(0, MAX_HTML_BYTES);

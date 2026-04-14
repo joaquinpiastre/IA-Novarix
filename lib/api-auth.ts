@@ -11,6 +11,10 @@ export async function requireSession() {
   return { session };
 }
 
+/**
+ * Contexto multi-tenant: usá siempre este `empresaId` en `where` / `data` de Prisma para datos de cliente.
+ * Nunca confíes en IDs que vengan del cliente sin comprobar que pertenecen a esta empresa.
+ */
 export async function requireEmpresaContext() {
   const { session, error } = await requireSession();
   if (error) return { error };

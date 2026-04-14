@@ -79,9 +79,19 @@ export function ConocimientoCliente({
       }),
     });
     setImportandoWeb(false);
-    const j = await r.json().catch(() => ({}));
+    const raw = await r.text();
+    let j: { error?: string } = {};
+    try {
+      j = raw ? (JSON.parse(raw) as { error?: string }) : {};
+    } catch {
+      j = {};
+    }
     if (!r.ok) {
-      setMsgWeb(j.error ?? "No se pudo importar.");
+      const fallback =
+        raw && !j.error
+          ? raw.slice(0, 280).replace(/\s+/g, " ").trim()
+          : "";
+      setMsgWeb(j.error ?? (fallback ? `Error ${r.status}: ${fallback}` : "No se pudo importar."));
       return;
     }
     setUrlWeb("");
