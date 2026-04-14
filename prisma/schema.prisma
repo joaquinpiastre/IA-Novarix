@@ -217,6 +217,7 @@ enum TipoArchivo {
   PDF
   CSV
   TEXTO
+  WEB // catálogo importado desde una URL (HTML)
 }
 
 enum EstadoConversacion {

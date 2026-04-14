@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import type { TipoArchivo } from "@prisma/client";
+import { excelBufferToTextoCatalogo } from "@/lib/excel-catalogo";
+import { normalizarTextoCatalogoConIA } from "@/lib/catalogo-normalizar-ia";
 
 function detectarTipo(nombre: string): TipoArchivo {
   const n = nombre.toLowerCase();
@@ -65,6 +67,10 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const agenteIdRaw = form.get("agenteId") as string | null;
+  const normalizarConIA =
+    form.get("normalizarConIA") === "1" ||
+    form.get("normalizarConIA") === "true" ||
+    form.get("normalizarConIA") === "on";
   if (!file?.size) {
     return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
   }
@@ -92,6 +98,29 @@ export async function POST(req: Request) {
       contenido = buf.toString("utf-8").slice(0, 500_000);
     } catch {
       contenido = null;
+    }
+  }
+
+  if (tipo === "EXCEL") {
+    try {
+      let texto = excelBufferToTextoCatalogo(buf);
+      if (normalizarConIA && process.env.OPENAI_API_KEY?.trim()) {
+        try {
+          texto = await normalizarTextoCatalogoConIA({
+            textoBruto: texto,
+            origenEtiqueta: `archivo Excel «${nombre}»`,
+          });
+        } catch (e) {
+          console.warn("[archivos] normalizar Excel con IA:", e);
+        }
+      }
+      contenido = texto.slice(0, 500_000);
+    } catch (e) {
+      console.warn("[archivos] leer Excel:", e);
+      return NextResponse.json(
+        { error: "No se pudo leer el Excel. Probá guardarlo como .xlsx y volver a subirlo." },
+        { status: 400 }
+      );
     }
   }
 

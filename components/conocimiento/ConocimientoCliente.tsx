@@ -33,6 +33,12 @@ export function ConocimientoCliente({
   const [agenteNota, setAgenteNota] = useState("");
   const [guardandoNota, setGuardandoNota] = useState(false);
   const [msgNota, setMsgNota] = useState("");
+  const [normalizarExcelIA, setNormalizarExcelIA] = useState(false);
+  const [urlWeb, setUrlWeb] = useState("");
+  const [agenteWeb, setAgenteWeb] = useState("");
+  const [normalizarWebIA, setNormalizarWebIA] = useState(true);
+  const [importandoWeb, setImportandoWeb] = useState(false);
+  const [msgWeb, setMsgWeb] = useState("");
 
   const onFiles = useCallback(
     async (files: FileList | null) => {
@@ -42,13 +48,48 @@ export function ConocimientoCliente({
         const fd = new FormData();
         fd.append("file", file);
         if (agenteId) fd.append("agenteId", agenteId);
+        const lower = file.name.toLowerCase();
+        if (normalizarExcelIA && (lower.endsWith(".xlsx") || lower.endsWith(".xls"))) {
+          fd.append("normalizarConIA", "1");
+        }
         await fetch("/api/archivos", { method: "POST", body: fd });
       }
       setUploading(false);
       router.refresh();
     },
-    [agenteId, router]
+    [agenteId, normalizarExcelIA, router]
   );
+
+  async function importarDesdeWeb(e: React.FormEvent) {
+    e.preventDefault();
+    setMsgWeb("");
+    const u = urlWeb.trim();
+    if (!u) {
+      setMsgWeb("Pegá una URL (https://…)");
+      return;
+    }
+    setImportandoWeb(true);
+    const r = await fetch("/api/catalogo/desde-web", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: u,
+        agenteId: agenteWeb || null,
+        normalizarConIA: normalizarWebIA,
+      }),
+    });
+    setImportandoWeb(false);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setMsgWeb(j.error ?? "No se pudo importar.");
+      return;
+    }
+    setUrlWeb("");
+    setMsgWeb(
+      `Importado: ${j.archivo?.nombre ?? "OK"}${typeof j.imagenesDetectadas === "number" ? ` · ${j.imagenesDetectadas} imágenes detectadas` : ""}.`
+    );
+    router.refresh();
+  }
 
   async function vincular(archivoId: string, ids: string[]) {
     await fetch("/api/archivos", {
@@ -141,6 +182,53 @@ export function ConocimientoCliente({
       </Card>
 
       <Card>
+        <h2 className="mb-2 text-lg font-semibold text-white">Catálogo desde página web</h2>
+        <p className="mb-4 text-sm leading-relaxed text-[#C4B5FD]">
+          Pegá la URL de una tienda o listado público. Vamos a leer el HTML, extraer texto e imágenes, y
+          guardarlo en tu base de conocimiento. Si activás la opción de IA, ordenamos productos, precios y
+          descripciones en un formato uniforme para el agente (sitios muy dinámicos o con login pueden traer
+          poco texto).
+        </p>
+        <form onSubmit={(e) => void importarDesdeWeb(e)} className="space-y-4">
+          <Input
+            label="URL"
+            type="url"
+            placeholder="https://tutienda.com/productos"
+            value={urlWeb}
+            onChange={(e) => setUrlWeb(e.target.value)}
+          />
+          <div>
+            <label className="mb-1 block text-sm text-[#C4B5FD]">Vincular a un agente (opcional)</label>
+            <select
+              className="w-full max-w-md rounded-input border border-[#7B2FF7]/30 bg-[#0A0118]/60 px-3 py-2 text-sm text-white"
+              value={agenteWeb}
+              onChange={(e) => setAgenteWeb(e.target.value)}
+            >
+              <option value="">Todos los agentes</option>
+              {agentes.map((a) => (
+                <option key={a.id} value={a.id}>
+                  Solo {a.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
+            <input
+              type="checkbox"
+              checked={normalizarWebIA}
+              onChange={(e) => setNormalizarWebIA(e.target.checked)}
+              className="rounded border-[#7B2FF7]/40"
+            />
+            Normalizar catálogo con IA (recomendado si la página es ruidosa)
+          </label>
+          <Button type="submit" disabled={importandoWeb}>
+            {importandoWeb ? "Importando…" : "Importar desde la web"}
+          </Button>
+          {msgWeb ? <p className="text-sm text-[#A855F7]">{msgWeb}</p> : null}
+        </form>
+      </Card>
+
+      <Card>
         <p className="mb-2 text-sm text-[#C4B5FD]">Vincular nuevos archivos a un agente (opcional)</p>
         <select
           className="mb-4 w-full max-w-md rounded-input border border-[#7B2FF7]/30 bg-[#0A0118]/60 px-3 py-2 text-sm text-white md:w-auto"
@@ -154,6 +242,15 @@ export function ConocimientoCliente({
             </option>
           ))}
         </select>
+        <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
+          <input
+            type="checkbox"
+            checked={normalizarExcelIA}
+            onChange={(e) => setNormalizarExcelIA(e.target.checked)}
+            className="rounded border-[#7B2FF7]/40"
+          />
+          Al subir Excel (.xlsx / .xls), normalizar filas en catálogo con IA
+        </label>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -170,7 +267,10 @@ export function ConocimientoCliente({
           }`}
         >
           <p className="text-[#C4B5FD]">Arrastrá Excel, PDF, CSV o TXT</p>
-          <p className="mt-2 text-xs text-[#7C6FAE]">o elegí desde tu equipo</p>
+          <p className="mt-2 text-xs text-[#7C6FAE]">
+            Los Excel se leen automáticamente y el texto queda en conocimiento (ideal para listas de
+            productos).
+          </p>
           <input
             type="file"
             multiple
@@ -204,8 +304,18 @@ export function ConocimientoCliente({
                 <p className="text-sm text-[#C4B5FD]">
                   Agente: {f.agente?.nombre ?? "Ninguno (global)"}
                 </p>
-                {esConocimientoManual(f.url) && f.contenido ? (
+                {(esConocimientoManual(f.url) || f.tipo === "WEB" || f.tipo === "EXCEL") && f.contenido ? (
                   <p className="mt-2 line-clamp-3 text-xs text-[#7C6FAE] whitespace-pre-wrap">{f.contenido}</p>
+                ) : null}
+                {f.tipo === "WEB" && f.url.startsWith("http") ? (
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-xs text-[#A855F7] underline"
+                  >
+                    Abrir URL origen
+                  </a>
                 ) : null}
               </div>
               <div className="flex flex-col gap-2">
