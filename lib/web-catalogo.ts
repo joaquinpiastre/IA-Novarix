@@ -3,6 +3,8 @@ import { esUrlSeguraParaFetch } from "@/lib/url-segura";
 
 const FETCH_MS = 15_000;
 const MAX_HTML_BYTES = 900_000;
+/** Límite práctico: el mensaje de éxito y el bloque enviado a la IA no pueden listar miles de URLs. */
+const MAX_URLS_IMAGEN = 200;
 
 function absolutizar(base: string, href: string | undefined): string | null {
   if (!href?.trim()) return null;
@@ -13,6 +15,15 @@ function absolutizar(base: string, href: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/** Primera URL de un atributo srcset ("url 1x, url2 2x" o "url 480w"). */
+function primeraUrlDeSrcset(srcset: string | undefined, base: string): string | null {
+  if (!srcset?.trim()) return null;
+  const part = srcset.split(",")[0]?.trim();
+  if (!part) return null;
+  const url = part.split(/\s+/)[0]?.trim();
+  return absolutizar(base, url);
 }
 
 export type ExtraccionWebCatalogo = {
@@ -79,8 +90,17 @@ export async function extraerContenidoWebParaCatalogo(url: string): Promise<Extr
     };
 
     pushImg(absolutizar(urlFinal, $('meta[property="og:image"]').attr("content")));
-    $("img[src]").each((_, el) => {
-      pushImg(absolutizar(urlFinal, $(el).attr("src")));
+    $("img").each((_, el) => {
+      const $el = $(el);
+      pushImg(absolutizar(urlFinal, $el.attr("src")));
+      pushImg(absolutizar(urlFinal, $el.attr("data-src")));
+      pushImg(absolutizar(urlFinal, $el.attr("data-lazy-src")));
+      pushImg(absolutizar(urlFinal, $el.attr("data-original")));
+      pushImg(primeraUrlDeSrcset($el.attr("srcset"), urlFinal));
+      pushImg(primeraUrlDeSrcset($el.attr("data-srcset"), urlFinal));
+    });
+    $("source[srcset]").each((_, el) => {
+      pushImg(primeraUrlDeSrcset($(el).attr("srcset"), urlFinal));
     });
 
     const textoPlano = $("body").text().replace(/\s+/g, " ").trim().slice(0, 120_000);
@@ -89,7 +109,7 @@ export async function extraerContenidoWebParaCatalogo(url: string): Promise<Extr
       urlFinal,
       tituloPagina,
       textoPlano: textoPlano || "(poco texto visible; puede ser una SPA o requerir login)",
-      urlsImagenes: urlsImagenes.slice(0, 80),
+      urlsImagenes: urlsImagenes.slice(0, MAX_URLS_IMAGEN),
       ogDescription,
     };
   } finally {

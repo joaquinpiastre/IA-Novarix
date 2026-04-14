@@ -199,10 +199,13 @@ export function ConocimientoCliente({
       <Card>
         <h2 className="mb-2 text-lg font-semibold text-white">Catálogo desde página web</h2>
         <p className="mb-4 text-sm leading-relaxed text-[#C4B5FD]">
-          Pegá la URL de una tienda o listado público. Vamos a leer el HTML, extraer texto e imágenes, y
-          guardarlo en tu base de conocimiento. Si activás la opción de IA, ordenamos productos, precios y
-          descripciones en un formato uniforme para el agente (sitios muy dinámicos o con login pueden traer
-          poco texto).
+          Pegá la URL de una tienda o listado público. Hacemos <strong className="text-white">una sola descarga</strong>{" "}
+          del HTML inicial (no abrimos un navegador): sacamos texto visible y URLs de imágenes que vengan en ese HTML
+          (incluye <code className="text-[#E9D5FF]">src</code>, carga diferida tipo{" "}
+          <code className="text-[#E9D5FF]">data-src</code>, <code className="text-[#E9D5FF]">srcset</code>, etc., hasta
+          un tope razonable). Las imágenes que cargue JavaScript después o que estén en otras páginas{" "}
+          <strong className="text-white">no</strong> entran. Si activás IA, ordenamos productos y precios en listado;
+          en cada producto la IA solo puede poner una URL de imagen si la reconoce en ese material.
         </p>
         <form onSubmit={(e) => void importarDesdeWeb(e)} className="space-y-4">
           <Input
