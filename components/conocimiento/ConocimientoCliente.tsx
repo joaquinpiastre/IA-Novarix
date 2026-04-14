@@ -80,9 +80,14 @@ export function ConocimientoCliente({
     });
     setImportandoWeb(false);
     const raw = await r.text();
-    let j: { error?: string } = {};
+    type DesdeWebJson = {
+      error?: string;
+      archivo?: { nombre?: string };
+      imagenesDetectadas?: number;
+    };
+    let j: DesdeWebJson = {};
     try {
-      j = raw ? (JSON.parse(raw) as { error?: string }) : {};
+      j = raw ? (JSON.parse(raw) as DesdeWebJson) : {};
     } catch {
       j = {};
     }
