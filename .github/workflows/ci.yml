@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Unit tests
+        run: npm run test
+      - name: Lint
+        run: npm run lint
+      - name: Build (sin DB real; variables mínimas)
+        run: npx prisma generate && npx next build
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/ci_placeholder"
+          NEXTAUTH_SECRET: "ci-secret-at-least-32-chars-long-xx"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"

@@ -8,6 +8,11 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Badge } from "@/components/ui/Badge";
 import type { ArchivoConocimiento } from "@prisma/client";
+import {
+  mensajeErrorImportacionWeb,
+  mensajeExitoImportacionWeb,
+  parseCatalogoDesdeWebJson,
+} from "@/lib/catalogo-desde-web-client";
 
 function esConocimientoManual(url: string) {
   return url.startsWith("manual://");
@@ -16,36 +21,6 @@ function esConocimientoManual(url: string) {
 type ArchivoRow = ArchivoConocimiento & {
   agente: { nombre: string; id: string } | null;
 };
-
-/** Respuesta JSON de POST /api/catalogo/desde-web (éxito o error). */
-type CatalogoDesdeWebRespuesta = {
-  error?: string;
-  archivo?: { nombre?: string };
-  imagenesDetectadas?: number;
-};
-
-function parseCatalogoDesdeWebJson(raw: string): CatalogoDesdeWebRespuesta {
-  const vacio: CatalogoDesdeWebRespuesta = {};
-  if (!raw.trim()) return vacio;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return vacio;
-    const o = parsed as Record<string, unknown>;
-    const out: CatalogoDesdeWebRespuesta = {};
-    if (typeof o.error === "string") out.error = o.error;
-    if (o.archivo !== null && typeof o.archivo === "object" && !Array.isArray(o.archivo)) {
-      const a = o.archivo as Record<string, unknown>;
-      if (typeof a.nombre === "string") out.archivo = { nombre: a.nombre };
-      else out.archivo = {};
-    }
-    if (typeof o.imagenesDetectadas === "number" && Number.isFinite(o.imagenesDetectadas)) {
-      out.imagenesDetectadas = o.imagenesDetectadas;
-    }
-    return out;
-  } catch {
-    return vacio;
-  }
-}
 
 export function ConocimientoCliente({
   archivos: initial,
@@ -112,18 +87,11 @@ export function ConocimientoCliente({
     const raw = await r.text();
     const data = parseCatalogoDesdeWebJson(raw);
     if (!r.ok) {
-      const fallback =
-        raw && !data.error
-          ? raw.slice(0, 280).replace(/\s+/g, " ").trim()
-          : "";
-      setMsgWeb(data.error ?? (fallback ? `Error ${r.status}: ${fallback}` : "No se pudo importar."));
+      setMsgWeb(mensajeErrorImportacionWeb(r.status, raw, data));
       return;
     }
-    const nombreOk = data.archivo?.nombre ?? "OK";
-    const nImg = data.imagenesDetectadas;
-    const parteImg = typeof nImg === "number" ? ` · ${nImg} imágenes detectadas` : "";
     setUrlWeb("");
-    setMsgWeb(`Importado: ${nombreOk}${parteImg}.`);
+    setMsgWeb(mensajeExitoImportacionWeb(data));
     router.refresh();
   }
 
