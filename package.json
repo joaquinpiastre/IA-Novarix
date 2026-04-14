@@ -7,7 +7,7 @@
     "build": "dotenv -e .env.local -- prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "node scripts/verify-no-old-web-import.mjs && vitest run",
     "test:watch": "vitest",
     "postinstall": "dotenv -e .env.local -- prisma generate",
     "prisma": "dotenv -e .env.local -- prisma",
