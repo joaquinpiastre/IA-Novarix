@@ -22,6 +22,11 @@ export function AgenteForm({ agenteId }: Props) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [testMensaje, setTestMensaje] = useState("Hola, ¿qué horarios tienen?");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testRespuesta, setTestRespuesta] = useState("");
+  const [testMeta, setTestMeta] = useState("");
+  const [testError, setTestError] = useState("");
 
   useEffect(() => {
     if (!agenteId) return;
@@ -86,6 +91,33 @@ export function AgenteForm({ agenteId }: Props) {
     router.refresh();
   }
 
+  async function probarRespuestaBot() {
+    if (!agenteId) return;
+    setTestError("");
+    setTestRespuesta("");
+    setTestMeta("");
+    setTestLoading(true);
+    const r = await fetch("/api/ai/responder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agenteId, mensaje: testMensaje.trim() }),
+    });
+    const j = await r.json().catch(() => ({}));
+    setTestLoading(false);
+    if (!r.ok) {
+      setTestError(typeof j.error === "string" ? j.error : "No se pudo obtener respuesta.");
+      return;
+    }
+    setTestRespuesta(typeof j.respuesta === "string" ? j.respuesta : "");
+    const creditos = typeof j.creditos === "number" ? j.creditos : null;
+    const tokens = typeof j.tokensTotal === "number" ? j.tokensTotal : null;
+    setTestMeta(
+      [creditos != null ? `Créditos: ${creditos}` : null, tokens != null ? `Tokens: ${tokens}` : null]
+        .filter(Boolean)
+        .join(" · ") || ""
+    );
+  }
+
   if (loading) return <p className="text-[#7C6FAE]">Cargando…</p>;
 
   return (
@@ -141,6 +173,34 @@ export function AgenteForm({ agenteId }: Props) {
           </Button>
         </div>
         {agenteId ? (
+          <>
+          <div className="mt-10 space-y-4 border-t border-[#7B2FF7]/20 pt-8">
+            <h3 className="text-sm font-semibold text-white">Probar respuesta del bot</h3>
+            <p className="text-sm leading-relaxed text-[#7C6FAE]">
+              Usa el mismo armado que en WhatsApp / Meta:{" "}
+              <strong className="text-[#C4B5FD]">prompt y ajustes guardados en el servidor</strong>, más
+              archivos de conocimiento vinculados a este agente (y globales) y la API de stock si el agente la
+              tiene habilitada. Si cambiaste el prompt arriba, guardá el agente antes de probar.
+            </p>
+            <Textarea
+              label="Mensaje de prueba (como si lo enviara un cliente)"
+              value={testMensaje}
+              onChange={(e) => setTestMensaje(e.target.value)}
+              rows={4}
+              className="min-h-[6rem] resize-y"
+            />
+            <Button type="button" variant="secondary" disabled={testLoading || !testMensaje.trim()} onClick={() => void probarRespuestaBot()}>
+              {testLoading ? "Generando…" : "Enviar y ver respuesta"}
+            </Button>
+            {testError ? <p className="text-sm text-red-400">{testError}</p> : null}
+            {testRespuesta ? (
+              <div className="rounded-xl border border-[#7B2FF7]/25 bg-[#0A0118]/60 p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#7C6FAE]">Respuesta del modelo</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#E9D5FF]">{testRespuesta}</p>
+                {testMeta ? <p className="mt-3 text-xs text-[#7C6FAE]">{testMeta}</p> : null}
+              </div>
+            ) : null}
+          </div>
           <div className="mt-10 border-t border-[#7B2FF7]/20 pt-8">
             <h3 className="mb-2 text-sm font-semibold text-[#C4B5FD]">Eliminar agente</h3>
             <p className="mb-4 text-sm text-[#7C6FAE]">
@@ -151,6 +211,7 @@ export function AgenteForm({ agenteId }: Props) {
               {deleting ? "Eliminando…" : "Eliminar agente"}
             </Button>
           </div>
+          </>
         ) : null}
       </form>
     </Card>

@@ -53,6 +53,9 @@ export function MetaConexionCard() {
 
     if (conectado === "true") {
       setMsg("Conectado: la IA ya puede responder en Messenger e Instagram.");
+      window.alert(
+        "Facebook e Instagram conectados correctamente.\n\nLa IA puede responder en Messenger e Instagram. WhatsApp Cloud API se configura aparte en «WhatsApp Business (Meta)» más abajo."
+      );
       void refrescarEmpresa();
       router.replace("/configuracion", { scroll: false });
     }
@@ -109,6 +112,9 @@ export function MetaConexionCard() {
     setModoSeleccion(false);
     setPaginasPend([]);
     setMsg("Conectado: la IA ya puede responder en Messenger e Instagram.");
+    window.alert(
+      "Página de Meta conectada.\n\nMessenger e Instagram quedaron vinculados. Si también usás WhatsApp Cloud API, completá Phone ID y token en «WhatsApp Business (Meta)»."
+    );
     void refrescarEmpresa();
   }
 

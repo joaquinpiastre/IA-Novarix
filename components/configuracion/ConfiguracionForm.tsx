@@ -43,22 +43,40 @@ export function ConfiguracionForm() {
     })();
   }, []);
 
-  async function guardarEmpresa(e: React.FormEvent) {
+  async function guardarDatosEmpresa(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+    const r = await fetch("/api/empresa", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    });
+    setMsg(r.ok ? "Guardado." : "Error al guardar.");
+  }
+
+  async function guardarWhatsAppConfig(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
     const r = await fetch("/api/empresa", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        nombre,
         whatsappPhoneId: phoneId || null,
         whatsappToken: token || undefined,
         whatsappVerifyToken: verify || null,
         whatsappNumero: numero || null,
       }),
     });
-    setMsg(r.ok ? "Guardado." : "Error al guardar.");
- }
+    if (r.ok) {
+      setMsg("WhatsApp guardado.");
+      window.alert(
+        "WhatsApp Business guardado en Novarix.\n\nEn Meta, configurá el webhook con la URL pública de la plataforma y el mismo «Webhook Verify Token» que cargaste acá. Después usá «Probar conexión» para confirmar que el envío funciona."
+      );
+    } else {
+      setMsg("Error al guardar WhatsApp.");
+      window.alert("No se pudo guardar la configuración de WhatsApp. Revisá los datos e intentá de nuevo.");
+    }
+  }
 
   async function guardarChatIaPausado(e: React.FormEvent) {
     e.preventDefault();
@@ -120,7 +138,16 @@ export function ConfiguracionForm() {
       body: JSON.stringify({ action: "probar-whatsapp" }),
     });
     const j = await r.json().catch(() => ({}));
-    setMsg(r.ok ? "Mensaje de prueba enviado." : j.error ?? "Falló la prueba.");
+    if (r.ok) {
+      const okText =
+        "Conexión exitosa: Novarix envió un mensaje de prueba al número configurado. Revisá WhatsApp.";
+      setMsg(okText);
+      window.alert("Conexión exitosa\n\n" + okText);
+    } else {
+      const err = typeof j.error === "string" ? j.error : "No se pudo enviar el mensaje de prueba.";
+      setMsg("Conexión fallida: " + err);
+      window.alert("Conexión fallida\n\n" + err);
+    }
   }
 
   async function cambiarPassword(e: React.FormEvent) {
@@ -145,7 +172,7 @@ export function ConfiguracionForm() {
     <div className="space-y-8">
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-white">Datos de la empresa</h2>
-        <form onSubmit={guardarEmpresa} className="space-y-4">
+        <form onSubmit={guardarDatosEmpresa} className="space-y-4">
           <Input label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
           <Input label="Email" value={email} disabled className="opacity-60" />
           <p className="text-xs text-[#7C6FAE]">El email no se puede cambiar desde acá.</p>
@@ -177,7 +204,7 @@ export function ConfiguracionForm() {
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-white">WhatsApp Business (Meta)</h2>
-        <form onSubmit={guardarEmpresa} className="space-y-4">
+        <form onSubmit={guardarWhatsAppConfig} className="space-y-4">
           <Input
             label="Phone Number ID"
             value={phoneId}
