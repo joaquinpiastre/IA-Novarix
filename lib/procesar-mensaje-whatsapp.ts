@@ -106,7 +106,7 @@ async function resolverTextoDelMensaje(
         creditosPrevia: creditosWhisper,
       };
     } catch (error) {
-      console.error("[Audio] Error procesando audio:", error);
+      console.error("[WhatsApp][debug][Audio] catch", error);
       return {
         texto:
           "Recibí tu audio pero tuve un problema para escucharlo. ¿Podés escribirme tu consulta?",
@@ -163,7 +163,7 @@ async function resolverTextoDelMensaje(
         creditosPrevia: creditosVision,
       };
     } catch (error) {
-      console.error("[Imagen] Error procesando imagen:", error);
+      console.error("[WhatsApp][debug][Imagen] catch", error);
       return {
         texto:
           "Recibí tu imagen pero no pude verla correctamente. ¿Podés describirme qué necesitás o mandarla de otra forma?",
@@ -255,7 +255,7 @@ async function prismaCall<T>(operation: string, fn: () => Promise<T>): Promise<T
   try {
     return await fn();
   } catch (err) {
-    console.error(`[WhatsApp][Prisma] ${operation}`, err);
+    console.error(`[WhatsApp][debug][Prisma] ${operation}`, err);
     throw err;
   }
 }
@@ -267,7 +267,11 @@ export async function procesarMensajeWhatsApp(input: {
   nombreCliente?: string | null;
   mensaje: WhatsAppInboundMessage;
 }): Promise<void> {
-  await runProcesarMensajeWhatsApp(input);
+  try {
+    await runProcesarMensajeWhatsApp(input);
+  } catch (err) {
+    console.error("[WhatsApp][debug] excepción no manejada en runProcesarMensajeWhatsApp", err);
+  }
 }
 
 async function runProcesarMensajeWhatsApp(input: {
@@ -277,12 +281,30 @@ async function runProcesarMensajeWhatsApp(input: {
   nombreCliente?: string | null;
   mensaje: WhatsAppInboundMessage;
 }): Promise<void> {
+  console.error("[WhatsApp][debug] inicio runProcesarMensajeWhatsApp", {
+    phoneNumberId: input.phoneNumberId,
+    from: input.numeroCliente,
+    tipo: input.mensaje?.type,
+  });
+
   const empresa = await prismaCall("empresa.findFirst", () =>
     prisma.empresa.findFirst({
       where: { whatsappPhoneId: input.phoneNumberId, activo: true },
     })
   );
-  if (!empresa?.whatsappToken) return;
+  if (!empresa?.whatsappToken) {
+    console.error("[WhatsApp][debug] abort: empresa no encontrada o sin whatsappToken", {
+      phoneNumberId: input.phoneNumberId,
+      empresaId: empresa?.id ?? null,
+      tieneToken: !!empresa?.whatsappToken,
+    });
+    return;
+  }
+  console.error("[WhatsApp][debug] empresa OK", {
+    empresaId: empresa.id,
+    nombre: empresa.nombre,
+    phoneIdCoincide: empresa.whatsappPhoneId === input.phoneNumberId,
+  });
 
   const contacto = await prismaCall("obtenerOCrearContacto", () =>
     obtenerOCrearContacto(empresa.id, input.numeroCliente, input.nombreCliente, "WHATSAPP")
@@ -299,7 +321,16 @@ async function runProcesarMensajeWhatsApp(input: {
         where: { empresaId: empresa.id, activo: true },
       })
     ));
-  if (!agente) return;
+  if (!agente) {
+    console.error("[WhatsApp][debug] abort: sin agente activo para la empresa", { empresaId: empresa.id });
+    return;
+  }
+  console.error("[WhatsApp][debug] agente OK", {
+    agenteId: agente.id,
+    nombre: agente.nombre,
+    esDefault: agente.esDefault,
+    activo: agente.activo,
+  });
 
   const resolved = await resolverTextoDelMensaje(input.mensaje, empresa, agente);
   const textoDelCliente = resolved.texto;
@@ -307,6 +338,7 @@ async function runProcesarMensajeWhatsApp(input: {
   const ts = isoNow();
 
   if (tipoMensaje === "text" && !textoDelCliente.trim()) {
+    console.error("[WhatsApp][debug] abort: mensaje de texto vacío tras resolver");
     return;
   }
 
@@ -378,12 +410,16 @@ async function runProcesarMensajeWhatsApp(input: {
     }
 
     if (!sinRespuestaAuto && empresa.whatsappPhoneId) {
-      await enviarMensajeWhatsApp({
-        phoneNumberId: input.phoneNumberId,
-        accessToken: empresa.whatsappToken,
-        to: input.numeroCliente,
-        text: textoDelCliente,
-      });
+      try {
+        await enviarMensajeWhatsApp({
+          phoneNumberId: input.phoneNumberId,
+          accessToken: empresa.whatsappToken,
+          to: input.numeroCliente,
+          text: textoDelCliente,
+        });
+      } catch (err) {
+        console.error("[WhatsApp][debug] enviarMensajeWhatsApp (rama fallback) catch", err);
+      }
     }
 
     if (resolved.creditosPrevia > 0) {
@@ -401,6 +437,7 @@ async function runProcesarMensajeWhatsApp(input: {
       );
     }
 
+    console.error("[WhatsApp][debug] fin rama fallback (skipOpenAi), sin llamar OpenAI en esta rama");
     return;
   }
 
@@ -458,6 +495,7 @@ async function runProcesarMensajeWhatsApp(input: {
   );
 
   if (empresa.chatIaPausado) {
+    console.error("[WhatsApp][debug] abort: chatIaPausado en empresa", { empresaId: empresa.id });
     return;
   }
 
@@ -466,6 +504,12 @@ async function runProcesarMensajeWhatsApp(input: {
     colaHumanaBloqueaIa({ estado: conv.estado, atencionHumana: conv.atencionHumana });
 
   if (bloquear) {
+    console.error("[WhatsApp][debug] abort: conversación bloquea IA", {
+      convId: conv.id,
+      iaHabilitada: conv.iaHabilitada,
+      estado: conv.estado,
+      atencionHumana: conv.atencionHumana,
+    });
     return;
   }
 
@@ -478,8 +522,14 @@ async function runProcesarMensajeWhatsApp(input: {
     })
   );
   const desdeArchivos = archivos.map((a) => (a.contenido ? a.contenido : `[${a.nombre}]`)).join("\n\n");
-  const desdeErp =
-    agente.busquedaProductos !== false ? await obtenerTextoCatalogoExterno(empresa) : "";
+  let desdeErp = "";
+  if (agente.busquedaProductos !== false) {
+    try {
+      desdeErp = await obtenerTextoCatalogoExterno(empresa);
+    } catch (err) {
+      console.error("[WhatsApp][debug] obtenerTextoCatalogoExterno catch", err);
+    }
+  }
   const conocimiento = [desdeArchivos, desdeErp].filter(Boolean).join("\n\n");
 
   const systemPrompt = construirSystemPrompt(agente, conocimiento, empresa.nombre);
@@ -492,6 +542,12 @@ async function runProcesarMensajeWhatsApp(input: {
   let texto: string;
   let tokensTotal: number;
   try {
+    console.error("[WhatsApp][debug] llamando OpenAI (generarRespuestaAgente)", {
+      agenteId: agente.id,
+      modelo: agente.modeloOpenai,
+      charsUsuario: textoDelCliente.length,
+      charsConocimiento: conocimiento.length,
+    });
     const r = await generarRespuestaAgente({
       systemPrompt,
       historial,
@@ -502,8 +558,9 @@ async function runProcesarMensajeWhatsApp(input: {
     });
     texto = r.texto;
     tokensTotal = r.tokensTotal;
+    console.error("[WhatsApp][debug] OpenAI OK", { tokensTotal, charsRespuesta: texto.length });
   } catch (e) {
-    console.error("OpenAI error", e);
+    console.error("[WhatsApp][debug] OpenAI generarRespuestaAgente catch", e);
     texto =
       "Disculpá, ahora no puedo responder. Probá de nuevo en unos minutos o pedí hablar con un asesor.";
     tokensTotal = 0;
@@ -541,10 +598,15 @@ async function runProcesarMensajeWhatsApp(input: {
     );
   }
 
-  await enviarMensajeWhatsApp({
-    phoneNumberId: input.phoneNumberId,
-    accessToken: empresa.whatsappToken,
-    to: input.numeroCliente,
-    text: texto,
-  });
+  try {
+    await enviarMensajeWhatsApp({
+      phoneNumberId: input.phoneNumberId,
+      accessToken: empresa.whatsappToken,
+      to: input.numeroCliente,
+      text: texto,
+    });
+    console.error("[WhatsApp][debug] enviarMensajeWhatsApp (respuesta IA) OK");
+  } catch (err) {
+    console.error("[WhatsApp][debug] enviarMensajeWhatsApp (respuesta IA) catch", err);
+  }
 }
