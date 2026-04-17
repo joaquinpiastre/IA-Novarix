@@ -411,14 +411,16 @@ async function runProcesarMensajeWhatsApp(input: {
 
     if (!sinRespuestaAuto && empresa.whatsappPhoneId) {
       try {
+        console.log("[WhatsApp][debug] enviando mensaje WhatsApp");
         await enviarMensajeWhatsApp({
           phoneNumberId: input.phoneNumberId,
           accessToken: empresa.whatsappToken,
           to: input.numeroCliente,
           text: textoDelCliente,
         });
-      } catch (err) {
-        console.error("[WhatsApp][debug] enviarMensajeWhatsApp (rama fallback) catch", err);
+        console.log("[WhatsApp][debug] mensaje enviado OK");
+      } catch (error) {
+        console.error("[WhatsApp][error] fallo envio:", error);
       }
     }
 
@@ -558,13 +560,18 @@ async function runProcesarMensajeWhatsApp(input: {
     });
     texto = r.texto;
     tokensTotal = r.tokensTotal;
-    console.error("[WhatsApp][debug] OpenAI OK", { tokensTotal, charsRespuesta: texto.length });
   } catch (e) {
     console.error("[WhatsApp][debug] OpenAI generarRespuestaAgente catch", e);
     texto =
       "Disculpá, ahora no puedo responder. Probá de nuevo en unos minutos o pedí hablar con un asesor.";
     tokensTotal = 0;
   }
+
+  const respuesta = texto;
+  console.log("[WhatsApp][debug] respuesta OpenAI recibida", {
+    tieneRespuesta: !!respuesta,
+    longitudRespuesta: respuesta?.length,
+  });
 
   const creditosAgente = calcularCreditos(tokensTotal);
   const creditosPrevia = resolved.creditosPrevia;
@@ -599,14 +606,15 @@ async function runProcesarMensajeWhatsApp(input: {
   }
 
   try {
+    console.log("[WhatsApp][debug] enviando mensaje WhatsApp");
     await enviarMensajeWhatsApp({
       phoneNumberId: input.phoneNumberId,
       accessToken: empresa.whatsappToken,
       to: input.numeroCliente,
       text: texto,
     });
-    console.error("[WhatsApp][debug] enviarMensajeWhatsApp (respuesta IA) OK");
-  } catch (err) {
-    console.error("[WhatsApp][debug] enviarMensajeWhatsApp (respuesta IA) catch", err);
+    console.log("[WhatsApp][debug] mensaje enviado OK");
+  } catch (error) {
+    console.error("[WhatsApp][error] fallo envio:", error);
   }
 }
