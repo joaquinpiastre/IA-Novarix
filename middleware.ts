@@ -35,7 +35,9 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;
         if (path.startsWith("/login") || path.startsWith("/register")) return true;
-        if (path.startsWith("/api/webhook/whatsapp")) return true;
+        if (path.startsWith("/api/webhook/whatsapp") || path.startsWith("/api/webhook/meta")) {
+          return true;
+        }
         return !!token;
       },
     },
@@ -44,6 +46,8 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/api/webhook/whatsapp",
+    "/api/webhook/meta",
     "/",
     "/agentes/:path*",
     "/conversaciones/:path*",

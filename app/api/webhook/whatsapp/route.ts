@@ -1,15 +1,16 @@
 import { verificarFirmaMeta } from "@/lib/whatsapp";
 import { procesarMensajeWhatsApp } from "@/lib/procesar-mensaje-whatsapp";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
-  const challenge = url.searchParams.get("hub.challenge");
-  const verify = process.env.WHATSAPP_VERIFY_TOKEN;
-  if (mode === "subscribe" && token && verify && token === verify && challenge) {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
+
+  if (mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
     return new Response(challenge, { status: 200 });
   }
+
   return new Response("Forbidden", { status: 403 });
 }
 
