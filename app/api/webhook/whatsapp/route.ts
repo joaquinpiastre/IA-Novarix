@@ -1,8 +1,7 @@
 import { verificarFirmaMeta } from "@/lib/whatsapp";
 import { procesarMensajeWhatsApp } from "@/lib/procesar-mensaje-whatsapp";
-import { scheduleAfterResponse } from "@/lib/vercel-background";
 
-/** Tiempo máximo de la función (DB + OpenAI + envío WhatsApp). Ajustá según plan Vercel. */
+/** DB + OpenAI + envío WhatsApp. Meta tolera varios segundos de respuesta. */
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
@@ -19,8 +18,9 @@ export async function GET(request: Request) {
 }
 
 /**
- * Meta exige respuesta rápida: respondemos 200 enseguida. El procesamiento sigue
- * en background con `waitUntil` (Vercel) para que no se corte al cerrar la request.
+ * Importante en Vercel: hay que `await` el procesamiento antes del 200. Si se devuelve
+ * la respuesta y el trabajo iba solo con `void` / `waitUntil` sin contexto, el runtime
+ * corta la función y Prisma/OpenAI no terminan (logs que se cortan tras "inicio").
  */
 export async function POST(req: Request) {
   let raw: string;
@@ -105,15 +105,17 @@ export async function POST(req: Request) {
     esGrupo,
   });
 
-  const task = procesarMensajeWhatsApp({
-    numeroCliente,
-    phoneNumberId,
-    esGrupo,
-    nombreCliente,
-    mensaje: message,
-  }).catch((e) => console.error("[webhook/whatsapp][debug] procesarMensajeWhatsApp rechazado", e));
-
-  scheduleAfterResponse(task);
+  try {
+    await procesarMensajeWhatsApp({
+      numeroCliente,
+      phoneNumberId,
+      esGrupo,
+      nombreCliente,
+      mensaje: message,
+    });
+  } catch (e) {
+    console.error("[webhook/whatsapp][debug] procesarMensajeWhatsApp rechazado", e);
+  }
 
   return new Response("OK", { status: 200 });
 }

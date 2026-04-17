@@ -1,7 +1,6 @@
 import { verificarFirmaMeta } from "@/lib/whatsapp";
 import { prisma } from "@/lib/db";
 import { procesarMensajeMeta } from "@/lib/procesar-mensaje-meta";
-import { scheduleAfterResponse } from "@/lib/vercel-background";
 
 export const maxDuration = 60;
 
@@ -128,7 +127,11 @@ export async function POST(req: Request) {
   }
 
   if (backgroundTasks.length > 0) {
-    scheduleAfterResponse(Promise.all(backgroundTasks));
+    try {
+      await Promise.all(backgroundTasks);
+    } catch (e) {
+      console.error("[webhook/meta] error en procesarMensajeMeta (uno o más)", e);
+    }
   }
 
   return Response.json({ status: "ok" });
