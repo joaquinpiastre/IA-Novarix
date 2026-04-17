@@ -14,18 +14,23 @@ export async function GET(request: Request) {
   return new Response("Forbidden", { status: 403 });
 }
 
+/**
+ * Meta exige respuesta rápida. Leemos el cuerpo en crudo (firma), validamos,
+ * encolamos el trabajo con `void` y respondemos 200 de inmediato para liberar
+ * la función serverless y reducir presión sobre el pool de conexiones.
+ */
 export async function POST(req: Request) {
   const raw = await req.text();
   const sig = req.headers.get("x-hub-signature-256");
   if (process.env.NODE_ENV === "production" && !verificarFirmaMeta(raw, sig)) {
-    return Response.json({ error: "Firma inválida" }, { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
   let body: unknown;
   try {
     body = JSON.parse(raw);
   } catch {
-    return Response.json({ status: "ignored" });
+    return new Response("OK", { status: 200 });
   }
 
   const b = body as {
@@ -46,18 +51,18 @@ export async function POST(req: Request) {
   const nombreCliente = value?.contacts?.[0]?.profile?.name ?? null;
 
   if (!message?.from || !phoneNumberId || !message.type) {
-    return Response.json({ status: "ignored" });
+    return new Response("OK", { status: 200 });
   }
 
   const t = message.type;
   if (t === "text" && !(message as { text?: { body?: string } }).text?.body?.trim()) {
-    return Response.json({ status: "ignored" });
+    return new Response("OK", { status: 200 });
   }
   if (t === "audio" && !(message as { audio?: { id?: string } }).audio?.id) {
-    return Response.json({ status: "ignored" });
+    return new Response("OK", { status: 200 });
   }
   if (t === "image" && !(message as { image?: { id?: string } }).image?.id) {
-    return Response.json({ status: "ignored" });
+    return new Response("OK", { status: 200 });
   }
 
   const rawFrom = message.from;
@@ -70,7 +75,7 @@ export async function POST(req: Request) {
     esGrupo,
     nombreCliente,
     mensaje: message,
-  }).catch((e) => console.error("WhatsApp process error", e));
+  }).catch((e) => console.error("[webhook/whatsapp] procesarMensajeWhatsApp", e));
 
-  return Response.json({ status: "ok" });
+  return new Response("OK", { status: 200 });
 }
