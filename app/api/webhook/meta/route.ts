@@ -1,6 +1,9 @@
 import { verificarFirmaMeta } from "@/lib/whatsapp";
 import { prisma } from "@/lib/db";
 import { procesarMensajeMeta } from "@/lib/procesar-mensaje-meta";
+import { scheduleAfterResponse } from "@/lib/vercel-background";
+
+export const maxDuration = 60;
 
 function verifyToken(): string | null {
   return (
@@ -65,6 +68,8 @@ export async function POST(req: Request) {
     return Response.json({ status: "ignored" });
   }
 
+  const backgroundTasks: Promise<unknown>[] = [];
+
   for (const entry of b.entry) {
     const entryId = entry.id;
     const messaging = entry.messaging ?? [];
@@ -79,13 +84,15 @@ export async function POST(req: Request) {
         const text = textoDeMessaging(ev);
         const sender = ev.sender?.id;
         if (!text || !sender) continue;
-        void procesarMensajeMeta({
-          empresaId: empresa.id,
-          canal: "MESSENGER",
-          senderId: sender,
-          textoMensaje: text,
-          nombreCliente: null,
-        }).catch((e) => console.error("Meta Messenger process error", e));
+        backgroundTasks.push(
+          procesarMensajeMeta({
+            empresaId: empresa.id,
+            canal: "MESSENGER",
+            senderId: sender,
+            textoMensaje: text,
+            nombreCliente: null,
+          }).catch((e) => console.error("Meta Messenger process error", e))
+        );
       }
     }
 
@@ -107,15 +114,21 @@ export async function POST(req: Request) {
         const text = textoDeMessaging(ev);
         const sender = ev.sender?.id;
         if (!text || !sender) continue;
-        void procesarMensajeMeta({
-          empresaId: empresa.id,
-          canal: "INSTAGRAM",
-          senderId: sender,
-          textoMensaje: text,
-          nombreCliente: null,
-        }).catch((e) => console.error("Meta Instagram process error", e));
+        backgroundTasks.push(
+          procesarMensajeMeta({
+            empresaId: empresa.id,
+            canal: "INSTAGRAM",
+            senderId: sender,
+            textoMensaje: text,
+            nombreCliente: null,
+          }).catch((e) => console.error("Meta Instagram process error", e))
+        );
       }
     }
+  }
+
+  if (backgroundTasks.length > 0) {
+    scheduleAfterResponse(Promise.all(backgroundTasks));
   }
 
   return Response.json({ status: "ok" });

@@ -1,5 +1,9 @@
 import { verificarFirmaMeta } from "@/lib/whatsapp";
 import { procesarMensajeWhatsApp } from "@/lib/procesar-mensaje-whatsapp";
+import { scheduleAfterResponse } from "@/lib/vercel-background";
+
+/** Tiempo máximo de la función (DB + OpenAI + envío WhatsApp). Ajustá según plan Vercel. */
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,9 +19,8 @@ export async function GET(request: Request) {
 }
 
 /**
- * Meta exige respuesta rápida. Leemos el cuerpo en crudo (firma), validamos,
- * encolamos el trabajo con `void` y respondemos 200 de inmediato para liberar
- * la función serverless y reducir presión sobre el pool de conexiones.
+ * Meta exige respuesta rápida: respondemos 200 enseguida. El procesamiento sigue
+ * en background con `waitUntil` (Vercel) para que no se corte al cerrar la request.
  */
 export async function POST(req: Request) {
   let raw: string;
@@ -102,13 +105,15 @@ export async function POST(req: Request) {
     esGrupo,
   });
 
-  void procesarMensajeWhatsApp({
+  const task = procesarMensajeWhatsApp({
     numeroCliente,
     phoneNumberId,
     esGrupo,
     nombreCliente,
     mensaje: message,
   }).catch((e) => console.error("[webhook/whatsapp][debug] procesarMensajeWhatsApp rechazado", e));
+
+  scheduleAfterResponse(task);
 
   return new Response("OK", { status: 200 });
 }
