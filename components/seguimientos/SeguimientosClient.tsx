@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { numerosIncluidosArray } from "@/lib/seguimientos";
 
 type Regla = {
   id: string;
   nombre: string;
   activa: boolean;
   disparador: string;
+  omitirGanadosPerdidos?: boolean | null;
+  numerosIncluidos?: unknown;
 };
 
 type Ultimo = {
@@ -24,10 +27,10 @@ type Ultimo = {
 };
 
 const disparadorLabel: Record<string, string> = {
-  TIEMPO_EN_ETAPA: "Días en etapa",
-  SIN_RESPUESTA: "Sin respuesta",
-  ETAPA_ESPECIFICA: "Etapa específica",
-  FECHA_PROGRAMADA: "Fecha programada",
+  TIEMPO_EN_ETAPA: "Días quieto en etapa",
+  SIN_RESPUESTA: "Horas sin que el cliente escriba",
+  ETAPA_ESPECIFICA: "Etapa específica (avanzado)",
+  FECHA_PROGRAMADA: "Fecha en CRM",
 };
 
 export function SeguimientosClient({
@@ -77,6 +80,14 @@ export function SeguimientosClient({
                 <div>
                   <p className="font-medium text-white">{r.nombre}</p>
                   <p className="text-xs text-[#7C6FAE]">{disparadorLabel[r.disparador] ?? r.disparador}</p>
+                  <p className="mt-1 text-xs text-[#9B8FC4]">
+                    {numerosIncluidosArray(r.numerosIncluidos).length > 0
+                      ? `Solo ${numerosIncluidosArray(r.numerosIncluidos).length} número(s) en lista`
+                      : "Regla general (todos los que cumplan)"}
+                    {r.omitirGanadosPerdidos === false
+                      ? " · También en etapa ganada o perdida"
+                      : " · Omite ganado/perdido"}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="flex items-center gap-2 text-sm text-[#C4B5FD]">

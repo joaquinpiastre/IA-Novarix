@@ -183,6 +183,10 @@ model ReglaFollowUp {
   diasEnEtapa       Int?
   horasSinRespuesta Int?
   etapaDisparoId    String?
+  /// JSON string[]: si hay elementos, solo esos teléfonos/claves (m:, ig:). Vacío/null = regla general.
+  numerosIncluidos  Json?
+  /// Si true, no envía a contactos en etapa ganada o perdida del embudo.
+  omitirGanadosPerdidos Boolean    @default(true)
   usarIA            Boolean        @default(true)
   promptMensaje     String?        @db.Text
   mensajeFijo       String?        @db.Text

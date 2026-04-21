@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import type { TipoDisparador } from "@prisma/client";
+import { parsearListaNumerosSeguimiento } from "@/lib/seguimientos";
 
 export async function GET() {
   const ctx = await requireEmpresaContext();
@@ -41,11 +43,27 @@ export async function POST(req: Request) {
     promptMensaje?: string | null;
     mensajeFijo?: string | null;
     moverAEtapaId?: string | null;
+    soloEstosNumeros?: boolean;
+    numerosTexto?: string | null;
+    omitirGanadosPerdidos?: boolean;
   };
 
   if (!body.nombre?.trim() || !body.disparador) {
     return NextResponse.json({ error: "Nombre y disparador requeridos" }, { status: 400 });
   }
+
+  const listaNumeros = parsearListaNumerosSeguimiento(body.numerosTexto ?? "");
+  if (body.soloEstosNumeros === true && listaNumeros.length === 0) {
+    return NextResponse.json(
+      { error: "Indicá al menos un teléfono o clave (podés usar m: o ig: para Meta)." },
+      { status: 400 }
+    );
+  }
+
+  const numerosIncluidos: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+    body.soloEstosNumeros === true && listaNumeros.length > 0
+      ? (listaNumeros as Prisma.InputJsonValue)
+      : Prisma.JsonNull;
 
   const r = await prisma.reglaFollowUp.create({
     data: {
@@ -56,6 +74,8 @@ export async function POST(req: Request) {
       diasEnEtapa: body.diasEnEtapa ?? null,
       horasSinRespuesta: body.horasSinRespuesta ?? null,
       etapaDisparoId: body.etapaDisparoId ?? null,
+      numerosIncluidos,
+      omitirGanadosPerdidos: body.omitirGanadosPerdidos !== false,
       usarIA: body.usarIA !== false,
       promptMensaje: body.promptMensaje?.trim() || null,
       mensajeFijo: body.mensajeFijo?.trim() || null,
