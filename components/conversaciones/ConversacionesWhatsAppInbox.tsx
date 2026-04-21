@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
@@ -84,6 +84,34 @@ function etiquetaTipo(t?: string): string | null {
   return t;
 }
 
+/** Intervalo de refresco del hilo abierto (ms). */
+const POLL_CONVERSACION_MS = 3500;
+
+function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
+  if (conv.id == null) return null;
+  const um = conv.ultimoMensaje;
+  const ultimoMensaje =
+    typeof um === "string"
+      ? um
+      : um != null
+        ? new Date(um as string).toISOString()
+        : "";
+  const ag = conv.agente as { nombre?: string } | null;
+  return {
+    id: String(conv.id),
+    canal: conv.canal as InboxRow["canal"],
+    numeroCliente: String(conv.numeroCliente ?? ""),
+    nombreCliente: (conv.nombreCliente as string | null) ?? null,
+    ultimoMensaje,
+    estado: String(conv.estado ?? ""),
+    esGrupo: Boolean(conv.esGrupo),
+    iaHabilitada: Boolean(conv.iaHabilitada),
+    atencionHumana: (conv.atencionHumana as InboxRow["atencionHumana"]) ?? "NINGUNA",
+    mensajes: conv.mensajes ?? [],
+    agente: ag?.nombre != null ? { nombre: String(ag.nombre) } : null,
+  };
+}
+
 export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -107,11 +135,62 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   );
 
   const threadRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  /** Si el usuario está cerca del final, los nuevos mensajes del poll bajan el scroll automáticamente. */
+  const stickToBottomRef = useRef(true);
+
+  const syncThreadScroll = useCallback(() => {
     const el = threadRef.current;
-    if (!el) return;
+    if (!el || !stickToBottomRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [selectedId, hiloMensajes.length]);
+  }, []);
+
+  useEffect(() => {
+    stickToBottomRef.current = true;
+  }, [selectedId]);
+
+  useLayoutEffect(() => {
+    syncThreadScroll();
+  }, [selectedId, hiloMensajes.length, syncThreadScroll]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let cancelled = false;
+
+    const pull = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const r = await fetch(`/api/conversaciones/${selectedId}`, { cache: "no-store" });
+        if (!r.ok || cancelled) return;
+        const j = (await r.json()) as Record<string, unknown>;
+        if (j.error || cancelled) return;
+        const mapped = conversacionApiToRow(j);
+        if (!mapped || cancelled) return;
+        setRows((prev) => {
+          const i = prev.findIndex((row) => row.id === mapped.id);
+          if (i === -1) return [mapped, ...prev];
+          const next = [...prev];
+          next[i] = mapped;
+          return next.sort(
+            (a, b) => (Date.parse(b.ultimoMensaje) || 0) - (Date.parse(a.ultimoMensaje) || 0)
+          );
+        });
+      } catch {
+        /* red intermitente: ignorar */
+      }
+    };
+
+    void pull();
+    const id = window.setInterval(() => void pull(), POLL_CONVERSACION_MS);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void pull();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [selectedId]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -246,12 +325,19 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               </div>
               <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
               <p className="mt-2 text-xs text-[#7C6FAE]">
-                Historial de mensajes guardado en Novarix (cliente e IA), ordenado como en el hilo.
+                Historial en vivo: se actualiza solo cada unos segundos mientras tenés este chat abierto (también al
+                volver a la pestaña).
               </p>
             </div>
 
             <div
               ref={threadRef}
+              onScroll={() => {
+                const el = threadRef.current;
+                if (!el) return;
+                const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+                stickToBottomRef.current = dist < 120;
+              }}
               className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#06020E]/80 px-3 py-4"
             >
               {!hiloMensajes.length ? (
