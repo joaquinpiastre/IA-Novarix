@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import QRCode from "qrcode";
 
 export function ConfiguracionForm() {
   const [nombre, setNombre] = useState("");
@@ -22,12 +21,6 @@ export function ConfiguracionForm() {
   const [nueva, setNueva] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
-  const [empresaId, setEmpresaId] = useState("");
-  const [whatsappTipo, setWhatsappTipo] = useState<"meta" | "qr">("meta");
-  const [qrRaw, setQrRaw] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [qrConectado, setQrConectado] = useState(false);
-  const [qrLoading, setQrLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -36,7 +29,6 @@ export function ConfiguracionForm() {
         const e = await r.json();
         setNombre(e.nombre ?? "");
         setEmail(e.email ?? "");
-        setEmpresaId(e.id ?? "");
         setPhoneId(e.whatsappPhoneId ?? "");
         setVerify(e.whatsappVerifyToken ?? "");
         setNumero(e.whatsappNumero ?? "");
@@ -46,23 +38,10 @@ export function ConfiguracionForm() {
         setStockToken("");
         setCotizacionIncluyeGrupos(e.cotizacionIncluyeGrupos !== false);
         setChatIaPausado(e.chatIaPausado === true);
-        setWhatsappTipo(e.whatsappTipo === "qr" ? "qr" : "meta");
-        setQrRaw(e.whatsappQRCode ?? null);
-        setQrConectado(e.whatsappQRConectado === true);
       }
       setLoading(false);
     })();
   }, []);
-
-  useEffect(() => {
-    if (!qrRaw) {
-      setQrDataUrl(null);
-      return;
-    }
-    void QRCode.toDataURL(qrRaw, { margin: 1, width: 280 })
-      .then((url) => setQrDataUrl(url))
-      .catch(() => setQrDataUrl(null));
-  }, [qrRaw]);
 
   async function guardarDatosEmpresa(e: React.FormEvent) {
     e.preventDefault();
@@ -98,62 +77,6 @@ export function ConfiguracionForm() {
       window.alert("No se pudo guardar la configuración de WhatsApp. Revisá los datos e intentá de nuevo.");
     }
   }
-
-  async function guardarTipoConexion(tipo: "meta" | "qr") {
-    setWhatsappTipo(tipo);
-    await fetch("/api/empresa", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ whatsappTipo: tipo }),
-    });
-  }
-
-  const refrescarEstadoQR = useCallback(async () => {
-    if (!empresaId) return;
-    const r = await fetch(`/api/whatsapp-qr/${empresaId}`);
-    if (!r.ok) return;
-    const j = (await r.json()) as { conectado: boolean; qr: string | null };
-    setQrConectado(j.conectado);
-    setQrRaw(j.qr);
-  }, [empresaId]);
-
-  async function conectarWhatsAppQR() {
-    if (!empresaId) return;
-    setQrLoading(true);
-    setMsg("");
-    const r = await fetch(`/api/whatsapp-qr/${empresaId}`, { method: "POST" });
-    if (!r.ok) {
-      setMsg("No se pudo iniciar la conexión QR.");
-      setQrLoading(false);
-      return;
-    }
-    setMsg("Conexión iniciada. Esperando QR...");
-    await refrescarEstadoQR();
-    setQrLoading(false);
-  }
-
-  async function desconectarWhatsAppQR() {
-    if (!empresaId) return;
-    setQrLoading(true);
-    const r = await fetch(`/api/whatsapp-qr/${empresaId}`, { method: "DELETE" });
-    if (r.ok) {
-      setQrConectado(false);
-      setQrRaw(null);
-      setMsg("WhatsApp QR desconectado.");
-    } else {
-      setMsg("No se pudo desconectar WhatsApp QR.");
-    }
-    setQrLoading(false);
-  }
-
-  useEffect(() => {
-    if (!empresaId || whatsappTipo !== "qr") return;
-    void refrescarEstadoQR();
-    const id = window.setInterval(() => {
-      void refrescarEstadoQR();
-    }, 4000);
-    return () => window.clearInterval(id);
-  }, [empresaId, whatsappTipo, refrescarEstadoQR]);
 
   async function guardarChatIaPausado(e: React.FormEvent) {
     e.preventDefault();
@@ -280,27 +203,6 @@ export function ConfiguracionForm() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold text-white">Tipo de conexión de WhatsApp</h2>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            type="button"
-            variant={whatsappTipo === "meta" ? "primary" : "secondary"}
-            onClick={() => void guardarTipoConexion("meta")}
-          >
-            Meta API
-          </Button>
-          <Button
-            type="button"
-            variant={whatsappTipo === "qr" ? "primary" : "secondary"}
-            onClick={() => void guardarTipoConexion("qr")}
-          >
-            WhatsApp Web (QR)
-          </Button>
-        </div>
-      </Card>
-
-      {whatsappTipo === "meta" ? (
-      <Card>
         <h2 className="mb-4 text-lg font-semibold text-white">WhatsApp Business (Meta)</h2>
         <form onSubmit={guardarWhatsAppConfig} className="space-y-4">
           <Input
@@ -336,33 +238,6 @@ export function ConfiguracionForm() {
           </div>
         </form>
       </Card>
-      ) : null}
-
-      {whatsappTipo === "qr" ? (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-white">Conectar WhatsApp por código QR</h2>
-          <p className="mb-4 text-sm text-[#C4B5FD]">
-            Abrí WhatsApp → Dispositivos vinculados → Vincular dispositivo → Escaneá el QR.
-          </p>
-          <div className="mb-4 flex flex-wrap gap-3">
-            <Button type="button" onClick={() => void conectarWhatsAppQR()} disabled={qrLoading}>
-              Conectar WhatsApp
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => void desconectarWhatsAppQR()} disabled={qrLoading}>
-              Desconectar
-            </Button>
-          </div>
-          <p className="mb-4 text-sm text-[#C4B5FD]">
-            Estado: {qrConectado ? "Conectado ✅" : qrRaw ? "Esperando escaneo..." : "Desconectado"}
-          </p>
-          {qrDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrDataUrl} alt="QR de WhatsApp" className="rounded-lg border border-[#7B2FF7]/30 bg-white p-2" />
-          ) : (
-            <p className="text-sm text-[#7C6FAE]">Todavía no hay código QR generado.</p>
-          )}
-        </Card>
-      ) : null}
 
       <Card>
         <h2 className="mb-4 text-lg font-semibold text-white">Cotizaciones y chats</h2>
