@@ -27,6 +27,9 @@ model Empresa {
   whatsappToken      String?
   whatsappPhoneId    String?
   whatsappVerifyToken String?
+  whatsappQRCode      String?   @db.Text
+  whatsappQRConectado Boolean   @default(false)
+  whatsappTipo        String    @default("meta") // "meta" o "qr"
   // Facebook Page + Instagram (OAuth por empresa; token de la página de Meta)
   metaPageId            String?
   metaPageToken         String?

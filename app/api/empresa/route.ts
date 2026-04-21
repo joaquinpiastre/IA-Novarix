@@ -31,6 +31,9 @@ export async function GET() {
       metaInstagramId: true,
       metaConectadoEn: true,
       chatIaPausado: true,
+      whatsappTipo: true,
+      whatsappQRCode: true,
+      whatsappQRConectado: true,
     },
   });
   if (!empresa) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
@@ -57,6 +60,7 @@ export async function PUT(req: Request) {
     stockApiKeyHeader,
     cotizacionIncluyeGrupos,
     chatIaPausado,
+    whatsappTipo,
   } = body as {
     nombre?: string;
     whatsappPhoneId?: string | null;
@@ -68,6 +72,7 @@ export async function PUT(req: Request) {
     stockApiKeyHeader?: string | null;
     cotizacionIncluyeGrupos?: boolean;
     chatIaPausado?: boolean;
+    whatsappTipo?: string;
   };
 
   const data: Record<string, unknown> = {};
@@ -85,6 +90,7 @@ export async function PUT(req: Request) {
   }
   if (typeof cotizacionIncluyeGrupos === "boolean") data.cotizacionIncluyeGrupos = cotizacionIncluyeGrupos;
   if (typeof chatIaPausado === "boolean") data.chatIaPausado = chatIaPausado;
+  if (whatsappTipo === "meta" || whatsappTipo === "qr") data.whatsappTipo = whatsappTipo;
 
   const empresa = await prisma.empresa.update({
     where: { id: ctx.empresaId },
