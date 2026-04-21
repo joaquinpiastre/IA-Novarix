@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
+
+type ThreadMsg = {
+  role: string;
+  content: string;
+  timestamp?: string;
+  tipo?: string;
+};
 
 export type InboxRow = {
   id: string;
@@ -48,6 +55,35 @@ function horaCorta(iso: string): string {
     : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
 }
 
+function horaMensaje(iso?: string): string {
+  if (!iso?.trim()) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function mensajesDelHilo(raw: unknown): ThreadMsg[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((m) => {
+      const o = m as Record<string, unknown>;
+      const role = typeof o.role === "string" ? o.role : "";
+      const content = typeof o.content === "string" ? o.content : "";
+      const timestamp = typeof o.timestamp === "string" ? o.timestamp : undefined;
+      const tipo = typeof o.tipo === "string" ? o.tipo : undefined;
+      return { role, content, timestamp, tipo };
+    })
+    .filter((m) => m.role && (m.content.trim() || m.tipo));
+}
+
+function etiquetaTipo(t?: string): string | null {
+  if (!t || t === "text") return null;
+  if (t === "audio") return "Audio";
+  if (t === "image") return "Imagen";
+  if (t === "fallback") return "Sistema";
+  return t;
+}
+
 export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -64,6 +100,18 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }, [paramC, rows]);
 
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
+
+  const hiloMensajes = useMemo(
+    () => (selected ? mensajesDelHilo(selected.mensajes) : []),
+    [selected?.id, selected?.mensajes]
+  );
+
+  const threadRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [selectedId, hiloMensajes.length]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -182,14 +230,14 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
         </div>
       </aside>
 
-      <section className="flex min-h-[320px] flex-1 flex-col p-4 lg:min-h-0">
+      <section className="flex min-h-0 flex-1 flex-col">
         {!selected ? (
-          <div className="flex flex-1 items-center justify-center text-[#7C6FAE]">
+          <div className="flex flex-1 items-center justify-center p-4 text-[#7C6FAE]">
             Elegí un chat de la lista (vista tipo WhatsApp Web).
           </div>
         ) : (
-          <>
-            <div className="mb-4 border-b border-[#7B2FF7]/15 pb-4">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-[#7B2FF7]/15 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
                 <span className="rounded border border-[#7B2FF7]/40 px-2 py-0.5 text-xs text-[#C4B5FD]">
@@ -197,16 +245,63 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 </span>
               </div>
               <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
-              <p className="mt-2 text-sm text-[#9B8FC4]">
-                Vista resumida: el historial completo lo ves en WhatsApp, Messenger o Instagram según el canal.
-              </p>
-              <p className="mt-2 rounded-lg border border-[#7B2FF7]/20 bg-[#0A0118]/60 p-3 text-sm text-[#C4B5FD]">
-                Último mensaje:{" "}
-                <span className="text-white/90">{previewMensajes(selected.mensajes)}</span>
+              <p className="mt-2 text-xs text-[#7C6FAE]">
+                Historial de mensajes guardado en Novarix (cliente e IA), ordenado como en el hilo.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div
+              ref={threadRef}
+              className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#06020E]/80 px-3 py-4"
+            >
+              {!hiloMensajes.length ? (
+                <p className="py-8 text-center text-sm text-[#7C6FAE]">No hay mensajes en este hilo.</p>
+              ) : (
+                hiloMensajes.map((m, i) => {
+                  const esCliente = m.role === "user";
+                  const esAsistente = m.role === "assistant";
+                  const extra = etiquetaTipo(m.tipo);
+                  const hora = horaMensaje(m.timestamp);
+                  if (!esCliente && !esAsistente) {
+                    return (
+                      <div key={i} className="flex justify-center">
+                        <p className="max-w-[95%] rounded-lg border border-[#7B2FF7]/15 bg-[#0A0118]/80 px-3 py-2 text-center text-xs text-[#9B8FC4]">
+                          {m.content.trim() || extra || m.role}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className={`flex w-full ${esCliente ? "justify-start" : "justify-end"}`}>
+                      <div
+                        className={`max-w-[min(85%,28rem)] rounded-2xl px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
+                          esCliente
+                            ? "rounded-bl-md border border-[#7B2FF7]/20 bg-[#141022] text-[#E8E4F5]"
+                            : "rounded-br-md border border-[#7B2FF7]/35 bg-gradient-to-br from-[#3D1F7A]/90 to-[#2D0A5E]/95 text-white"
+                        }`}
+                      >
+                        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#9B8FC4]">
+                          {esCliente ? "Cliente" : "IA / bot"}
+                          {extra ? ` · ${extra}` : null}
+                        </p>
+                        <p className="whitespace-pre-wrap break-words">{m.content.trim() || "—"}</p>
+                        {hora ? (
+                          <p
+                            className={`mt-1 text-right text-[10px] tabular-nums ${
+                              esCliente ? "text-[#7C6FAE]" : "text-[#C4B5FD]/80"
+                            }`}
+                          >
+                            {hora}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="shrink-0 space-y-4 border-t border-[#7B2FF7]/15 p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
                   <input
@@ -261,7 +356,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
 
               {msg ? <p className="text-sm text-[#A855F7]">{msg}</p> : null}
             </div>
-          </>
+          </div>
         )}
       </section>
     </div>
