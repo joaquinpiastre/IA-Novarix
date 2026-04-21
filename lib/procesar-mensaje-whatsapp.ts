@@ -10,6 +10,7 @@ import {
 import { descargarMediaWhatsApp, enviarMensajeWhatsApp } from "@/lib/whatsapp";
 import { obtenerTextoCatalogoExterno } from "@/lib/stock-api";
 import { obtenerOCrearContacto } from "@/lib/crm";
+import { getHumanHandoffReply, requiresHumanHandoff } from "@/lib/human-handoff";
 
 export type WhatsAppInboundMessage = {
   type?: string;
@@ -336,6 +337,7 @@ async function runProcesarMensajeWhatsApp(input: {
   const textoDelCliente = resolved.texto;
   const tipoMensaje = resolved.tipo;
   const ts = isoNow();
+  const solicitaHumano = requiresHumanHandoff(textoDelCliente);
 
   if (tipoMensaje === "text" && !textoDelCliente.trim()) {
     console.error("[WhatsApp][debug] abort: mensaje de texto vacío tras resolver");
@@ -356,6 +358,85 @@ async function runProcesarMensajeWhatsApp(input: {
 
   let convId: string;
   const now = new Date();
+  const respuestaHumana = getHumanHandoffReply(agente.responsableHumano);
+
+  if (solicitaHumano) {
+    const yaEnColaHumana = convPrev?.atencionHumana === "ACTIVA";
+    const nuevosMensajes: Msg[] = yaEnColaHumana
+      ? [...mensajesPrev, { role: "user", content: textoDelCliente, tipo: tipoMensaje, timestamp: ts }]
+      : [
+          ...mensajesPrev,
+          { role: "user", content: textoDelCliente, tipo: tipoMensaje, timestamp: ts },
+          { role: "assistant", content: respuestaHumana, tipo: "fallback", timestamp: ts },
+        ];
+
+    if (!convPrev) {
+      const c = await prismaCall("conversacion.create (derivacion humana)", () =>
+        prisma.conversacion.create({
+          data: {
+            empresaId: empresa.id,
+            agenteId: agente.id,
+            numeroCliente: input.numeroCliente,
+            nombreCliente: input.nombreCliente?.trim() || null,
+            esGrupo: input.esGrupo,
+            canal: canalWa,
+            contactoId: contacto.id,
+            atencionHumana: "ACTIVA",
+            estado: "DERIVADA_HUMANO",
+            mensajes: nuevosMensajes as unknown as Prisma.InputJsonValue,
+            ultimoMensaje: now,
+          },
+        })
+      );
+      convId = c.id;
+    } else {
+      await prismaCall("conversacion.update (derivacion humana)", () =>
+        prisma.conversacion.update({
+          where: { id: convPrev.id },
+          data: {
+            atencionHumana: "ACTIVA",
+            estado: "DERIVADA_HUMANO",
+            mensajes: nuevosMensajes as unknown as Prisma.InputJsonValue,
+            ultimoMensaje: now,
+            esGrupo: input.esGrupo || convPrev.esGrupo,
+            contactoId: contacto.id,
+            ...(input.nombreCliente?.trim() ? { nombreCliente: input.nombreCliente.trim() } : {}),
+          },
+        })
+      );
+      convId = convPrev.id;
+    }
+
+    if (!yaEnColaHumana) {
+      try {
+        await enviarMensajeWhatsApp({
+          phoneNumberId: input.phoneNumberId,
+          accessToken: empresa.whatsappToken,
+          to: input.numeroCliente,
+          text: respuestaHumana,
+        });
+      } catch (error) {
+        console.error("[WhatsApp][error] fallo envio respuesta derivacion humana:", error);
+      }
+    }
+
+    if (resolved.creditosPrevia > 0) {
+      await prismaCall("empresa.update creditos (derivacion previa)", () =>
+        prisma.empresa.update({
+          where: { id: empresa.id },
+          data: { creditosUsados: { increment: resolved.creditosPrevia } },
+        })
+      );
+      await prismaCall("conversacion.update creditos (derivacion previa)", () =>
+        prisma.conversacion.update({
+          where: { id: convId },
+          data: { creditosUsados: { increment: resolved.creditosPrevia } },
+        })
+      );
+    }
+
+    return;
+  }
 
   if (skipOpenAi) {
     const bloquearInicial = convPrev ? conversacionBloqueaIa(convPrev) : false;

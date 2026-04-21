@@ -18,6 +18,7 @@ export function AgenteForm({ agenteId }: Props) {
   const [esDefault, setEsDefault] = useState(false);
   const [activo, setActivo] = useState(true);
   const [codigoActivacion, setCodigoActivacion] = useState("");
+  const [responsableHumano, setResponsableHumano] = useState("");
   const [loading, setLoading] = useState(!!agenteId);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -40,6 +41,7 @@ export function AgenteForm({ agenteId }: Props) {
       setEsDefault(!!a.esDefault);
       setActivo(!!a.activo);
       setCodigoActivacion(a.codigoActivacion ?? "");
+      setResponsableHumano(a.responsableHumano ?? "");
       setLoading(false);
     })();
   }, [agenteId]);
@@ -59,6 +61,7 @@ export function AgenteForm({ agenteId }: Props) {
         esDefault,
         activo,
         codigoActivacion: codigoActivacion || null,
+        responsableHumano: responsableHumano || null,
       }),
     });
     setSaving(false);
@@ -163,6 +166,12 @@ export function AgenteForm({ agenteId }: Props) {
           value={codigoActivacion}
           onChange={(e) => setCodigoActivacion(e.target.value)}
           placeholder="Ej.: PROMO2025"
+        />
+        <Input
+          label="Responsable humano para derivaciones"
+          value={responsableHumano}
+          onChange={(e) => setResponsableHumano(e.target.value)}
+          placeholder='Ej.: "Juan (Ventas)"'
         />
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saving}>

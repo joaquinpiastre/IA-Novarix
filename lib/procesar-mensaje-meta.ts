@@ -5,6 +5,7 @@ import { construirSystemPrompt, generarRespuestaAgente } from "@/lib/openai";
 import { obtenerTextoCatalogoExterno } from "@/lib/stock-api";
 import { obtenerOCrearContacto } from "@/lib/crm";
 import { enviarMensajeInstagram, enviarMensajeMessenger } from "@/lib/meta-graph";
+import { getHumanHandoffReply, requiresHumanHandoff } from "@/lib/human-handoff";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -63,7 +64,17 @@ export async function procesarMensajeMeta(input: {
   });
 
   const mensajesPrev = (convPrev?.mensajes as Msg[] | null) ?? [];
-  const userTurn: Msg[] = [...mensajesPrev, { role: "user", content: input.textoMensaje }];
+  const solicitaHumano = requiresHumanHandoff(input.textoMensaje);
+  const respuestaHumana = getHumanHandoffReply(agente.responsableHumano);
+  const yaEnColaHumana = convPrev?.atencionHumana === "ACTIVA";
+  const userTurn: Msg[] =
+    solicitaHumano && !yaEnColaHumana
+      ? [
+          ...mensajesPrev,
+          { role: "user", content: input.textoMensaje },
+          { role: "assistant", content: respuestaHumana },
+        ]
+      : [...mensajesPrev, { role: "user", content: input.textoMensaje }];
   const now = new Date();
 
   let convId: string;
@@ -77,6 +88,8 @@ export async function procesarMensajeMeta(input: {
         esGrupo: false,
         canal: input.canal,
         contactoId: contacto.id,
+        atencionHumana: solicitaHumano ? "ACTIVA" : "NINGUNA",
+        estado: solicitaHumano ? "DERIVADA_HUMANO" : "ACTIVA",
         mensajes: userTurn as unknown as Prisma.InputJsonValue,
         ultimoMensaje: now,
       },
@@ -93,6 +106,7 @@ export async function procesarMensajeMeta(input: {
       where: { id: convPrev.id },
       data: {
         ...reopenEstado,
+        ...(solicitaHumano ? { atencionHumana: "ACTIVA" as const, estado: "DERIVADA_HUMANO" as const } : {}),
         mensajes: userTurn as unknown as Prisma.InputJsonValue,
         ultimoMensaje: now,
         contactoId: contacto.id,
@@ -100,6 +114,17 @@ export async function procesarMensajeMeta(input: {
       },
     });
     convId = convPrev.id;
+  }
+
+  if (solicitaHumano) {
+    if (!yaEnColaHumana) {
+      if (input.canal === "MESSENGER") {
+        await enviarMensajeMessenger(empresa.metaPageToken, input.senderId, respuestaHumana);
+      } else if (input.canal === "INSTAGRAM" && empresa.metaInstagramId) {
+        await enviarMensajeInstagram(empresa.metaPageToken, empresa.metaInstagramId, input.senderId, respuestaHumana);
+      }
+    }
+    return;
   }
 
   const conv = await prisma.conversacion.findUniqueOrThrow({ where: { id: convId } });

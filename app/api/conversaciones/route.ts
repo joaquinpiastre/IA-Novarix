@@ -33,7 +33,7 @@ export async function GET(req: Request) {
 
   const list = await prisma.conversacion.findMany({
     where,
-    include: { agente: { select: { nombre: true } } },
+    include: { agente: { select: { nombre: true, responsableHumano: true } } },
     orderBy: { ultimoMensaje: "desc" },
     take: todas ? 500 : 200,
   });

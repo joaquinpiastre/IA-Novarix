@@ -26,6 +26,7 @@ export function AdminAgenteEditor({ agenteId }: { agenteId: string }) {
   const [slug, setSlug] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [codigoActivacion, setCodigoActivacion] = useState("");
+  const [responsableHumano, setResponsableHumano] = useState("");
   const [prompt, setPrompt] = useState("");
   const [promptTenant, setPromptTenant] = useState("");
   const [permiteTransferencia, setPermiteTransferencia] = useState(false);
@@ -49,6 +50,7 @@ export function AdminAgenteEditor({ agenteId }: { agenteId: string }) {
       setSlug(a.slug ?? "");
       setDescripcion(a.descripcion ?? "");
       setCodigoActivacion(a.codigoActivacion ?? "");
+      setResponsableHumano(a.responsableHumano ?? "");
       setPrompt(a.prompt ?? "");
       setPromptTenant(a.promptTenant ?? "");
       setPermiteTransferencia(!!a.permiteTransferencia);
@@ -74,6 +76,7 @@ export function AdminAgenteEditor({ agenteId }: { agenteId: string }) {
         slug: slug || null,
         descripcion: descripcion || null,
         codigoActivacion: codigoActivacion || null,
+        responsableHumano: responsableHumano || null,
         prompt,
         promptTenant: promptTenant || null,
         permiteTransferencia,
@@ -131,6 +134,13 @@ export function AdminAgenteEditor({ agenteId }: { agenteId: string }) {
             value={codigoActivacion}
             onChange={(e) => setCodigoActivacion(e.target.value)}
             placeholder="Ej.: PINTURERIA — para enrutar mensajes a este agente"
+          />
+          <Input
+            className="mt-4"
+            label="Responsable humano para derivaciones"
+            value={responsableHumano}
+            onChange={(e) => setResponsableHumano(e.target.value)}
+            placeholder='Ej.: "Martina (Ventas)"'
           />
         </Card>
 

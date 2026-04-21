@@ -17,7 +17,7 @@ export default async function ConversacionesPage() {
     where: { empresaId },
     orderBy: { ultimoMensaje: "desc" },
     take: 500,
-    include: { agente: { select: { nombre: true } } },
+    include: { agente: { select: { nombre: true, responsableHumano: true } } },
   });
 
   const initial: InboxRow[] = lista.map((c) => ({

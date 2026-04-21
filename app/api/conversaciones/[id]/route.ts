@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if ("error" in ctx) return ctx.error;
   const conv = await prisma.conversacion.findFirst({
     where: { id: params.id, empresaId: ctx.empresaId },
-    include: { agente: { select: { nombre: true, id: true } } },
+    include: { agente: { select: { nombre: true, id: true, responsableHumano: true } } },
   });
   if (!conv) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
   return NextResponse.json(conv);
@@ -63,7 +63,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const updated = await prisma.conversacion.update({
     where: { id: params.id },
     data,
-    include: { agente: { select: { nombre: true, id: true } } },
+    include: { agente: { select: { nombre: true, id: true, responsableHumano: true } } },
   });
   return NextResponse.json(updated);
 }

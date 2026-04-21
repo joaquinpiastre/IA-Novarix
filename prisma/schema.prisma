@@ -63,6 +63,7 @@ model Agente {
   esDefault        Boolean  @default(false)
   codigoActivacion String?  @unique // palabra clave de ruteo (WhatsApp / canales)
   permiteTransferencia Boolean @default(false)
+  responsableHumano   String? // nombre/rol de la persona humana que toma casos de este agente
   busquedaProductos    Boolean @default(true) // si false, no consulta API stock ERP
   temperatura      Float    @default(0.6)
   modeloOpenai     String   @default("gpt-4o-mini")

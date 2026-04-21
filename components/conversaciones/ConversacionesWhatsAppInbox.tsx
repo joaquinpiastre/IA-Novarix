@@ -23,7 +23,7 @@ export type InboxRow = {
   iaHabilitada: boolean;
   atencionHumana: AtencionHumanaEstado;
   mensajes: unknown;
-  agente: { nombre: string } | null;
+  agente: { nombre: string; responsableHumano?: string | null } | null;
 };
 
 function previewMensajes(mensajes: unknown): string {
@@ -96,7 +96,7 @@ function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
       : um != null
         ? new Date(um as string).toISOString()
         : "";
-  const ag = conv.agente as { nombre?: string } | null;
+  const ag = conv.agente as { nombre?: string; responsableHumano?: string | null } | null;
   return {
     id: String(conv.id),
     canal: conv.canal as InboxRow["canal"],
@@ -108,7 +108,14 @@ function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
     iaHabilitada: Boolean(conv.iaHabilitada),
     atencionHumana: (conv.atencionHumana as InboxRow["atencionHumana"]) ?? "NINGUNA",
     mensajes: conv.mensajes ?? [],
-    agente: ag?.nombre != null ? { nombre: String(ag.nombre) } : null,
+    agente:
+      ag?.nombre != null
+        ? {
+            nombre: String(ag.nombre),
+            responsableHumano:
+              typeof ag.responsableHumano === "string" ? ag.responsableHumano : null,
+          }
+        : null,
   };
 }
 
@@ -256,16 +263,26 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
         <div className="min-h-0 flex-1 overflow-y-auto">
           {filtered.map((c) => {
             const active = c.id === selectedId;
+            const requiereHumano = c.atencionHumana === "ACTIVA";
             return (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => select(c.id)}
-                className={`flex w-full gap-3 border-b border-[#7B2FF7]/10 px-3 py-3 text-left transition hover:bg-[#2D0A5E]/30 ${
+                className={`relative flex w-full gap-3 border-b border-[#7B2FF7]/10 px-3 py-3 text-left transition hover:bg-[#2D0A5E]/30 ${
+                  requiereHumano ? "animate-pulse bg-rose-950/10" : ""
+                } ${
                   active ? "bg-[#2D0A5E]/50" : ""
                 }`}
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-sm font-semibold text-white">
+                {requiereHumano ? (
+                  <span className="absolute right-2 top-2 inline-flex h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-rose-300/40" />
+                ) : null}
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-sm font-semibold text-white ${
+                    requiereHumano ? "ring-2 ring-rose-400/70" : ""
+                  }`}
+                >
                   {tituloChat(c).slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -324,6 +341,14 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 </span>
               </div>
               <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
+              {selected.atencionHumana === "ACTIVA" ? (
+                <p className="mt-2 rounded-md border border-rose-400/40 bg-rose-950/25 px-2.5 py-1.5 text-xs text-rose-200">
+                  Derivado a humano:{" "}
+                  <strong className="font-semibold text-rose-100">
+                    {selected.agente?.responsableHumano?.trim() || "Asesor asignado del sector"}
+                  </strong>
+                </p>
+              ) : null}
               <p className="mt-2 text-xs text-[#7C6FAE]">
                 Historial en vivo: se actualiza solo cada unos segundos mientras tenés este chat abierto (también al
                 volver a la pestaña).

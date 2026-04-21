@@ -25,13 +25,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
   const body = await req.json();
-  const { nombre, descripcion, prompt, esDefault, activo, codigoActivacion } = body as {
+  const { nombre, descripcion, prompt, esDefault, activo, codigoActivacion, responsableHumano } = body as {
     nombre?: string;
     descripcion?: string;
     prompt?: string;
     esDefault?: boolean;
     activo?: boolean;
     codigoActivacion?: string | null;
+    responsableHumano?: string | null;
   };
 
   if (esDefault) {
@@ -51,6 +52,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       ...(activo != null && { activo: !!activo }),
       ...(codigoActivacion !== undefined && {
         codigoActivacion: codigoActivacion?.trim() || null,
+      }),
+      ...(responsableHumano !== undefined && {
+        responsableHumano: responsableHumano?.trim() || null,
       }),
     },
   });

@@ -19,13 +19,14 @@ export async function POST(req: Request) {
   const ctx = await requireEmpresaContext();
   if ("error" in ctx) return ctx.error;
   const body = await req.json();
-  const { nombre, descripcion, prompt, esDefault, activo, codigoActivacion } = body as {
+  const { nombre, descripcion, prompt, esDefault, activo, codigoActivacion, responsableHumano } = body as {
     nombre?: string;
     descripcion?: string;
     prompt?: string;
     esDefault?: boolean;
     activo?: boolean;
     codigoActivacion?: string | null;
+    responsableHumano?: string | null;
   };
   if (!nombre?.trim() || !prompt?.trim()) {
     return NextResponse.json({ error: "Nombre y prompt son obligatorios" }, { status: 400 });
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
       esDefault: !!esDefault,
       activo: activo !== false,
       codigoActivacion: codigoActivacion?.trim() || null,
+      responsableHumano: responsableHumano?.trim() || null,
     },
   });
   return NextResponse.json(agente);

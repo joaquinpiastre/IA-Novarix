@@ -39,6 +39,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     temperatura?: number;
     modeloOpenai?: string;
     maxTokens?: number;
+    responsableHumano?: string | null;
   };
 
   if (body.esDefault === true) {
@@ -74,6 +75,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       ...(body.temperatura != null && Number.isFinite(body.temperatura) && { temperatura: body.temperatura }),
       ...(body.modeloOpenai != null && { modeloOpenai: body.modeloOpenai.trim() }),
       ...(body.maxTokens != null && Number.isFinite(body.maxTokens) && { maxTokens: Math.min(8192, Math.max(256, Math.floor(body.maxTokens))) }),
+      ...(body.responsableHumano !== undefined && {
+        responsableHumano: body.responsableHumano?.trim() || null,
+      }),
     },
     include: { empresa: { select: { nombre: true, email: true } } },
   });
