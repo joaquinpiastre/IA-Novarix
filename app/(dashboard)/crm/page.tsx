@@ -33,10 +33,16 @@ export default async function CrmPage() {
     etapaId: c.etapaId,
     origen: c.origen,
     proximoSeguimiento: c.proximoSeguimiento?.toISOString() ?? null,
+    email: c.email,
+    empresaCliente: c.empresaCliente,
   }));
 
   return (
     <PageShell title="CRM">
+      <p className="mb-6 max-w-3xl text-sm leading-relaxed text-[#C4B5FD]">
+        Base de clientes centralizada: filtrá por canal y fechas, mové oportunidades en el embudo, exportá todo a Excel
+        para campañas o reporting, y mantené el detalle de cada cuenta con historial y seguimientos.
+      </p>
       <CrmWorkspace
         etapas={etapas.map((e) => ({
           id: e.id,

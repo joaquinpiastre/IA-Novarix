@@ -45,6 +45,7 @@ export default async function ContactoCrmPage({ params }: { params: { id: string
         inicial={{
           nombre: contacto.nombre,
           numero: contacto.numero,
+          email: contacto.email,
           empresaCliente: contacto.empresaCliente,
           etapaId: contacto.etapaId,
           valorOportunidad: contacto.valorOportunidad,

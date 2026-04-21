@@ -15,6 +15,8 @@ export type ContactoKanban = {
 export type ContactoCrmFull = ContactoKanban & {
   origen: string;
   proximoSeguimiento: string | null;
+  email: string | null;
+  empresaCliente: string | null;
 };
 
 function tiempoDesde(iso: string) {

@@ -14,6 +14,7 @@ type Props = {
   inicial: {
     nombre: string | null;
     numero: string;
+    email: string | null;
     empresaCliente: string | null;
     etapaId: string | null;
     valorOportunidad: number | null;
@@ -48,6 +49,9 @@ export function ContactoDetalleClient({
   etapaNombres,
 }: Props) {
   const router = useRouter();
+  const [nombre, setNombre] = useState(inicial.nombre ?? "");
+  const [email, setEmail] = useState(inicial.email ?? "");
+  const [empresaCliente, setEmpresaCliente] = useState(inicial.empresaCliente ?? "");
   const [etapaId, setEtapaId] = useState(inicial.etapaId ?? "");
   const [valor, setValor] = useState(inicial.valorOportunidad != null ? String(inicial.valorOportunidad) : "");
   const [proximo, setProximo] = useState(
@@ -55,6 +59,7 @@ export function ContactoDetalleClient({
   );
   const [notas, setNotas] = useState(inicial.notas ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function guardar() {
     setSaving(true);
@@ -62,6 +67,9 @@ export function ContactoDetalleClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        nombre: nombre.trim() || null,
+        email: email.trim() || null,
+        empresaCliente: empresaCliente.trim() || null,
         etapaId: etapaId || null,
         valorOportunidad: valor ? parseFloat(valor.replace(",", ".")) : null,
         proximoSeguimiento: proximo ? new Date(proximo).toISOString() : null,
@@ -72,10 +80,58 @@ export function ContactoDetalleClient({
     router.refresh();
   }
 
+  async function eliminar() {
+    if (
+      !window.confirm(
+        "¿Eliminar este contacto del CRM?\n\nLas conversaciones quedarán sin vincular. Esta acción no se puede deshacer."
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const r = await fetch(`/api/crm/contactos/${contactoId}`, { method: "DELETE" });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        window.alert((j as { error?: string }).error ?? "No se pudo eliminar.");
+        return;
+      }
+      router.push("/crm");
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <Card className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">Datos y etapa</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">Datos y etapa</h2>
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-rose-300 hover:bg-rose-950/40 hover:text-rose-200"
+            disabled={deleting}
+            onClick={() => void eliminar()}
+          >
+            {deleting ? "Eliminando…" : "Eliminar del CRM"}
+          </Button>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-[#C4B5FD]">Teléfono / clave</label>
+          <p className="rounded-input border border-[#7B2FF7]/20 bg-[#0A0118]/40 px-3 py-2.5 font-mono text-sm text-[#C4B5FD]">
+            {inicial.numero}
+          </p>
+          <p className="mt-1 text-xs text-[#7C6FAE]">El identificador no se puede cambiar desde acá.</p>
+        </div>
+        <Input label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input
+          label="Empresa (cliente)"
+          value={empresaCliente}
+          onChange={(e) => setEmpresaCliente(e.target.value)}
+        />
         <div>
           <label className="mb-1 block text-sm text-[#C4B5FD]">Etapa</label>
           <select

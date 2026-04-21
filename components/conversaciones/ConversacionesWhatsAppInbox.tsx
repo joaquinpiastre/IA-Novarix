@@ -242,8 +242,8 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }
 
   return (
-    <div className="flex min-h-[min(85vh,760px)] flex-col overflow-hidden rounded-xl border border-[#7B2FF7]/25 bg-[#0A0118]/50 lg:flex-row">
-      <aside className="flex w-full flex-col border-b border-[#7B2FF7]/20 lg:max-w-[380px] lg:border-b-0 lg:border-r">
+    <div className="flex h-[min(760px,calc(100dvh-10rem))] min-h-[280px] w-full flex-col overflow-hidden rounded-xl border border-[#7B2FF7]/25 bg-[#0A0118]/50 lg:flex-row">
+      <aside className="flex min-h-0 w-full max-h-[min(300px,42dvh)] flex-shrink-0 flex-col overflow-hidden border-b border-[#7B2FF7]/20 lg:h-full lg:max-h-none lg:max-w-[380px] lg:border-b-0 lg:border-r">
         <div className="border-b border-[#7B2FF7]/15 p-3">
           <input
             type="search"
@@ -253,7 +253,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
             className="w-full rounded-input border border-[#7B2FF7]/30 bg-[#0A0118]/60 px-3 py-2.5 text-sm text-white placeholder:text-[#7C6FAE] focus:border-[#7B2FF7] focus:outline-none focus:ring-1 focus:ring-[#7B2FF7]/50"
           />
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {filtered.map((c) => {
             const active = c.id === selectedId;
             return (
@@ -309,13 +309,13 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
         </div>
       </aside>
 
-      <section className="flex min-h-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:h-full">
         {!selected ? (
           <div className="flex flex-1 items-center justify-center p-4 text-[#7C6FAE]">
             Elegí un chat de la lista (vista tipo WhatsApp Web).
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="shrink-0 border-b border-[#7B2FF7]/15 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
@@ -338,7 +338,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
                 stickToBottomRef.current = dist < 120;
               }}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#06020E]/80 px-3 py-4"
+              className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg bg-[#06020E]/90 px-3 py-4 ring-1 ring-inset ring-[#7B2FF7]/15"
             >
               {!hiloMensajes.length ? (
                 <p className="py-8 text-center text-sm text-[#7C6FAE]">No hay mensajes en este hilo.</p>
