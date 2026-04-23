@@ -218,6 +218,11 @@ export function ConfiguracionForm() {
             onChange={(e) => setToken(e.target.value)}
             placeholder="Dejá vacío para no cambiar el guardado"
           />
+          <p className="text-xs leading-relaxed text-[#A78BCC]">
+            Tiene que ser un token <strong className="text-white/90">válido y vigente</strong> de la app de WhatsApp
+            Cloud API (idealmente permanente del usuario del sistema en Meta Business). Los tokens temporales del
+            Explorador de Graph caducan en pocas horas y Meta responde error 190 (OAuth).
+          </p>
           <Input
             label="Webhook Verify Token"
             value={verify}

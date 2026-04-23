@@ -613,7 +613,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 </p>
               </div>
 
-              {msg ? <p className="text-sm text-[#A855F7]">{msg}</p> : null}
+              {msg ? (
+                <p className="whitespace-pre-wrap break-words text-sm text-[#A855F7]">{msg}</p>
+              ) : null}
 
               <div className="border-t border-[rgba(123,47,247,0.25)] pt-4">
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">

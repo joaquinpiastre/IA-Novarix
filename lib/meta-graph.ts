@@ -107,6 +107,42 @@ export async function registrarWebhooksMetaPagina(
   }
 }
 
+type MetaGraphErrorBody = {
+  error?: { message?: string; code?: number; type?: string; error_subcode?: number };
+};
+
+/**
+ * Convierte el cuerpo JSON de error de Graph API en texto útil para el usuario (español).
+ * Código 190: token inválido o caducado (WhatsApp, página de Meta, etc.).
+ */
+export function textoErrorGraphApi(body: string): string {
+  const trimmed = body?.trim() ?? "";
+  if (!trimmed) return "Meta devolvió un error vacío al enviar el mensaje.";
+
+  let j: MetaGraphErrorBody;
+  try {
+    j = JSON.parse(trimmed) as MetaGraphErrorBody;
+  } catch {
+    return trimmed.length > 800 ? `${trimmed.slice(0, 800)}…` : trimmed;
+  }
+
+  const err = j.error;
+  if (!err) return trimmed.length > 800 ? `${trimmed.slice(0, 800)}…` : trimmed;
+
+  if (err.code === 190 || err.type === "OAuthException") {
+    return [
+      "Meta rechazó el token de acceso (error OAuth 190): está vencido, fue revocado o no corresponde a esta app.",
+      "",
+      "WhatsApp Cloud API: en business.facebook.com → Configuración de la empresa → Usuarios → Usuario del sistema → generá un token permanente con permisos de WhatsApp. Pegá ese token y el Phone number ID del mismo número activo en Configuración de Novarix.",
+      "",
+      "Messenger / Instagram: renová el token de la página volviendo a conectar la integración Meta en la app.",
+    ].join("\n");
+  }
+
+  if (typeof err.message === "string" && err.message.trim()) return err.message.trim();
+  return trimmed.length > 800 ? `${trimmed.slice(0, 800)}…` : trimmed;
+}
+
 export async function enviarMensajeMessenger(pageAccessToken: string, recipientPsid: string, text: string) {
   const url = `https://graph.facebook.com/${API_VERSION}/me/messages?access_token=${encodeURIComponent(pageAccessToken)}`;
   return fetch(url, {

@@ -3,7 +3,11 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import { enviarMensajeWhatsApp } from "@/lib/whatsapp";
-import { enviarMensajeInstagram, enviarMensajeMessenger } from "@/lib/meta-graph";
+import {
+  enviarMensajeInstagram,
+  enviarMensajeMessenger,
+  textoErrorGraphApi,
+} from "@/lib/meta-graph";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const ctx = await requireEmpresaContext();
@@ -57,7 +61,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const errBody = await res.text();
   if (!res.ok) {
     return NextResponse.json(
-      { error: errBody || `Error al enviar (${res.status})` },
+      { error: textoErrorGraphApi(errBody || `Error al enviar (${res.status})`) },
       { status: res.status >= 400 && res.status < 600 ? res.status : 502 }
     );
   }
