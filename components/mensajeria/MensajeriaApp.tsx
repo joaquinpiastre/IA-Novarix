@@ -71,6 +71,7 @@ export function MensajeriaApp() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [nuevoAbajo, setNuevoAbajo] = useState(false);
+  const [cargaError, setCargaError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickBottom = useRef(true);
@@ -80,7 +81,13 @@ export function MensajeriaApp() {
 
   const fetchCanales = useCallback(async () => {
     const r = await fetch("/api/mensajeria/canales");
-    if (!r.ok) return;
+    if (!r.ok) {
+      setCargaError(
+        r.status === 401 ? "Sesión expirada: volvé a iniciar sesión." : "No se pudieron cargar los canales de mensajería."
+      );
+      return;
+    }
+    setCargaError(null);
     const j = await r.json();
     setCanales(j.canales ?? []);
     setYoId(j.yo?.id ?? null);
@@ -140,13 +147,35 @@ export function MensajeriaApp() {
   useEffect(() => {
     if (!canales.length || canalId) return;
     const saved = typeof window !== "undefined" ? localStorage.getItem(LS_CANAL) : null;
+    const mobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
     if (saved && canales.some((c) => c.id === saved)) {
       setCanalId(saved);
+      if (mobile) setMobileChat(true);
       return;
     }
     const first = canales.find((c) => c.tipo !== "privado") ?? canales[0];
-    if (first) setCanalId(first.id);
+    if (first) {
+      setCanalId(first.id);
+      if (mobile) setMobileChat(true);
+    }
   }, [canales, canalId]);
+
+  /** Si el id guardado ya no existe en la lista (cambio de tenant, borrado, etc.), volver a un canal válido. */
+  useEffect(() => {
+    if (!canalId || !canales.length) return;
+    const exists = canales.some((c) => c.id === canalId);
+    if (exists) return;
+    if (typeof window !== "undefined") localStorage.removeItem(LS_CANAL);
+    const first = canales.find((c) => c.tipo !== "privado") ?? canales[0];
+    if (first) {
+      setCanalId(first.id);
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+        setMobileChat(true);
+      }
+    } else {
+      setCanalId(null);
+    }
+  }, [canalId, canales]);
 
   useEffect(() => {
     if (!canalId) return;
@@ -267,7 +296,7 @@ export function MensajeriaApp() {
 
   return (
     <div
-      className="flex h-[calc(100dvh-6rem)] min-h-[480px] w-full overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)] md:h-[calc(100vh-7rem)]"
+      className="flex h-[calc(100dvh-6rem)] w-full min-h-0 max-h-[calc(100dvh-6rem)] overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)]"
       style={{
         background:
           "linear-gradient(90deg, #0A0118 0%, #130826 18%, #0A0118 50%, #130826 82%, #0A0118 100%)",
@@ -275,10 +304,13 @@ export function MensajeriaApp() {
     >
       {/* Lista */}
       <aside
-        className={`flex w-full shrink-0 flex-col border-r border-[rgba(123,47,247,0.12)] bg-[#130826]/90 md:w-[30%] md:max-w-sm ${
+        className={`flex min-h-0 w-full shrink-0 flex-col border-r border-[rgba(123,47,247,0.12)] bg-[#130826]/90 md:w-[30%] md:max-w-sm ${
           mobileChat ? "hidden md:flex" : "flex"
         }`}
       >
+        {cargaError ? (
+          <div className="border-b border-red-500/30 bg-red-950/40 px-3 py-2 text-center text-xs text-red-200">{cargaError}</div>
+        ) : null}
         <div className="flex items-center gap-2 border-b border-[rgba(123,47,247,0.15)] px-4 py-3">
           <NovarixLogo />
           <div>
@@ -371,7 +403,7 @@ export function MensajeriaApp() {
 
       {/* Chat */}
       <section
-        className={`relative flex min-w-0 flex-1 flex-col bg-gradient-to-b from-[#130826]/40 to-[#0A0118] ${
+        className={`relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-b from-[#130826]/40 to-[#0A0118] ${
           mobileChat ? "flex" : "hidden md:flex"
         }`}
       >
@@ -414,7 +446,7 @@ export function MensajeriaApp() {
               </div>
             </header>
 
-            <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-3 py-4">
+            <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4">
               {mensajes.map((m, idx) => {
                 const prev = mensajes[idx - 1];
                 const showDay = !prev || etiquetaDia(prev.creadoEn) !== etiquetaDia(m.creadoEn);
@@ -601,9 +633,15 @@ export function MensajeriaApp() {
             />
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-[#A78BCC]">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-[#A78BCC]">
             <ImageIcon className="h-12 w-12 opacity-40" />
-            <p className="text-sm">Elegí un canal o un compañero para empezar a chatear.</p>
+            <p className="text-sm text-white/90">Elegí un canal o un compañero para empezar a chatear.</p>
+            {cargaError ? <p className="max-w-sm text-xs text-red-300">{cargaError}</p> : null}
+            {!cargaError && !canales.length ? (
+              <p className="max-w-sm text-xs text-[#A78BCC]">
+                Si ves la lista vacía, ejecutá la migración de base (`add_mensajeria_interna`) y recargá la página.
+              </p>
+            ) : null}
           </div>
         )}
       </section>

@@ -234,7 +234,7 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
   };
 
   return (
-    <div className="border-t border-[rgba(123,47,247,0.2)] bg-[#130826]/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="shrink-0 border-t border-[rgba(123,47,247,0.2)] bg-[#130826]/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {replyTo ? (
         <div className="mb-2 flex items-start justify-between gap-2 rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] px-3 py-2 text-sm">
           <div className="min-w-0 border-l-2 border-[#7B2FF7] pl-2">
