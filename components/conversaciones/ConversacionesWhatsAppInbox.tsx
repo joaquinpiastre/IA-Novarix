@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
+import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "@/components/mensajeria/mensajeria-format";
 
 type ThreadMsg = {
   role: string;
@@ -60,6 +61,21 @@ function horaMensaje(iso?: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function InboxAvatar({ label, id }: { label: string; id: string }) {
+  const h = hashHue(id + label);
+  const ini = label.trim().slice(0, 1).toUpperCase() || "?";
+  return (
+    <div
+      className="mr-2 mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-inner"
+      style={{
+        background: `linear-gradient(135deg, hsl(${h},70%,42%), hsl(${(h + 60) % 360},65%,35%))`,
+      }}
+    >
+      {ini}
+    </div>
+  );
 }
 
 function mensajesDelHilo(raw: unknown): ThreadMsg[] {
@@ -363,48 +379,95 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
                 stickToBottomRef.current = dist < 120;
               }}
-              className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden rounded-lg bg-[#06020E]/90 px-3 py-4 ring-1 ring-inset ring-[#7B2FF7]/15"
+              className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-[#130826]/40 to-[#0A0118] px-3 py-4"
             >
               {!hiloMensajes.length ? (
-                <p className="py-8 text-center text-sm text-[#7C6FAE]">No hay mensajes en este hilo.</p>
+                <p className="py-8 text-center text-sm text-[#A78BCC]">No hay mensajes en este hilo.</p>
               ) : (
                 hiloMensajes.map((m, i) => {
                   const esCliente = m.role === "user";
                   const esAsistente = m.role === "assistant";
                   const extra = etiquetaTipo(m.tipo);
-                  const hora = horaMensaje(m.timestamp);
+                  const ts = m.timestamp;
+                  const cuando =
+                    ts && !Number.isNaN(Date.parse(ts)) ? formatRelativo(ts) : horaMensaje(ts);
+                  const prev = hiloMensajes[i - 1];
+                  const prevTs = prev?.timestamp;
+                  const showDay =
+                    !!ts &&
+                    !Number.isNaN(Date.parse(ts)) &&
+                    (!prevTs ||
+                      Number.isNaN(Date.parse(prevTs)) ||
+                      etiquetaDia(prevTs) !== etiquetaDia(ts));
+
                   if (!esCliente && !esAsistente) {
                     return (
-                      <div key={i} className="flex justify-center">
-                        <p className="max-w-[95%] rounded-lg border border-[#7B2FF7]/15 bg-[#0A0118]/80 px-3 py-2 text-center text-xs text-[#9B8FC4]">
-                          {m.content.trim() || extra || m.role}
-                        </p>
+                      <div key={i}>
+                        {showDay ? (
+                          <div className="my-4 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-[rgba(123,47,247,0.2)]" />
+                            <span className="text-[11px] text-[#A78BCC]">{etiquetaDia(ts)}</span>
+                            <div className="h-px flex-1 bg-[rgba(123,47,247,0.2)]" />
+                          </div>
+                        ) : null}
+                        <div className="msg-enter mb-2 flex justify-center">
+                          <p className="max-w-[95%] rounded-xl border border-[rgba(123,47,247,0.2)] bg-[#1A0A35]/90 px-3 py-2 text-center text-xs text-[#A78BCC]">
+                            {m.content.trim() || extra || m.role}
+                          </p>
+                        </div>
                       </div>
                     );
                   }
+
+                  const clienteNombre = tituloChat(selected);
+                  const bubbleCliente = [
+                    "relative px-3 py-2 shadow-lg",
+                    "rounded-[18px] rounded-bl-[4px] border-l-2 border-[#7B2FF7]/40 bg-[#1E0D3A] text-white",
+                  ].join(" ");
+                  const bubbleIa = [
+                    "relative px-3 py-2 shadow-lg",
+                    "rounded-[18px] rounded-br-[4px] bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-white shadow-[#7B2FF7]/25",
+                  ].join(" ");
+
                   return (
-                    <div key={i} className={`flex w-full ${esCliente ? "justify-start" : "justify-end"}`}>
+                    <div key={i}>
+                      {showDay ? (
+                        <div className="my-4 flex items-center gap-3">
+                          <div className="h-px flex-1 bg-[rgba(123,47,247,0.2)]" />
+                          <span className="text-[11px] text-[#A78BCC]">{etiquetaDia(ts)}</span>
+                          <div className="h-px flex-1 bg-[rgba(123,47,247,0.2)]" />
+                        </div>
+                      ) : null}
                       <div
-                        className={`max-w-[min(85%,28rem)] rounded-2xl px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
-                          esCliente
-                            ? "rounded-bl-md border border-[#7B2FF7]/20 bg-[#141022] text-[#E8E4F5]"
-                            : "rounded-br-md border border-[#7B2FF7]/35 bg-gradient-to-br from-[#3D1F7A]/90 to-[#2D0A5E]/95 text-white"
-                        }`}
+                        className={`msg-enter group relative mb-2 flex w-full ${esCliente ? "justify-start" : "justify-end"}`}
                       >
-                        <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#9B8FC4]">
-                          {esCliente ? "Cliente" : "IA / bot"}
-                          {extra ? ` · ${extra}` : null}
-                        </p>
-                        <p className="whitespace-pre-wrap break-words">{m.content.trim() || "—"}</p>
-                        {hora ? (
-                          <p
-                            className={`mt-1 text-right text-[10px] tabular-nums ${
-                              esCliente ? "text-[#7C6FAE]" : "text-[#C4B5FD]/80"
-                            }`}
-                          >
-                            {hora}
-                          </p>
+                        {esCliente ? (
+                          <InboxAvatar label={clienteNombre} id={selected.numeroCliente || selected.id} />
                         ) : null}
+                        <div className="max-w-[min(85%,520px)]">
+                          <div className={esCliente ? bubbleCliente : bubbleIa}>
+                            {extra ? (
+                              <p
+                                className={`mb-1 text-[11px] font-medium ${
+                                  esCliente ? "text-[#A78BCC]" : "text-white/85"
+                                }`}
+                              >
+                                {extra}
+                              </p>
+                            ) : null}
+                            <div className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+                              {m.content.trim() ? renderRichText(m.content.trim()) : "—"}
+                            </div>
+                            <div
+                              className={`mt-1 flex flex-wrap items-center gap-1 text-[11px] ${
+                                esCliente ? "text-[#A78BCC]" : "text-white/80"
+                              }`}
+                            >
+                              <span>{esCliente ? clienteNombre : "IA / bot"}</span>
+                              {cuando ? <span>· {cuando}</span> : null}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );

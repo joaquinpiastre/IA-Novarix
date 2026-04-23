@@ -12,7 +12,6 @@ import {
   Image as ImageIcon,
   FileText,
 } from "lucide-react";
-import { NovarixLogo } from "@/components/layout/NovarixLogo";
 import { MensajeriaComposer } from "./MensajeriaComposer";
 import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "./mensajeria-format";
 
@@ -311,12 +310,9 @@ export function MensajeriaApp() {
         {cargaError ? (
           <div className="border-b border-red-500/30 bg-red-950/40 px-3 py-2 text-center text-xs text-red-200">{cargaError}</div>
         ) : null}
-        <div className="flex items-center gap-2 border-b border-[rgba(123,47,247,0.15)] px-4 py-3">
-          <NovarixLogo />
-          <div>
-            <h1 className="text-sm font-bold text-white">Mensajería</h1>
-            <p className="text-[11px] text-[#A78BCC]">Equipo interno</p>
-          </div>
+        <div className="border-b border-[rgba(123,47,247,0.15)] px-4 py-3">
+          <h1 className="text-sm font-bold text-white">Mensajería</h1>
+          <p className="text-[11px] text-[#A78BCC]">Equipo interno</p>
         </div>
         <div className="p-3">
           <div className="relative">
