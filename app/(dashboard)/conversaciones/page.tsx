@@ -36,9 +36,9 @@ export default async function ConversacionesPage() {
 
   return (
     <PageShell title="Chats">
-      <p className="mb-4 max-w-2xl text-sm leading-relaxed text-[#C4B5FD]">
-        Hilos de WhatsApp, Facebook Messenger e Instagram de tu empresa en una bandeja. Podés desactivar la IA por chat
-        (por ejemplo conversaciones internas) y marcar cuándo un caso necesita humano o ya quedó resuelto.
+      <p className="mb-3 max-w-2xl text-xs leading-relaxed text-[#A78BCC] md:text-sm">
+        WhatsApp, Messenger e Instagram. Desactivá la IA por chat o marcá atención humana desde la barra inferior del
+        hilo.
       </p>
       <ConversacionesWhatsAppInbox initial={initial} />
     </PageShell>

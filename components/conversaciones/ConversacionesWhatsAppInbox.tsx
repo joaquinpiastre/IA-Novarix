@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
+import { ArrowLeft, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "@/components/mensajeria/mensajeria-format";
 
@@ -44,16 +45,10 @@ function tituloChat(c: InboxRow): string {
   return c.numeroCliente;
 }
 
-function horaCorta(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const sameDay =
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear();
-  return sameDay
-    ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+function horaLista(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isNaN(t)) return formatRelativo(iso);
+  return "";
 }
 
 function horaMensaje(iso?: string): string {
@@ -63,13 +58,17 @@ function horaMensaje(iso?: string): string {
   return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function InboxAvatar({ label, id }: { label: string; id: string }) {
+function InboxAvatar({ label, id, size = 32 }: { label: string; id: string; size?: number }) {
   const h = hashHue(id + label);
   const ini = label.trim().slice(0, 1).toUpperCase() || "?";
+  const textSize = size >= 40 ? "text-sm" : "text-xs";
   return (
     <div
-      className="mr-2 mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-inner"
+      className={`mr-2 mt-1 flex shrink-0 items-center justify-center rounded-full font-bold text-white shadow-inner ${textSize}`}
       style={{
+        width: size,
+        height: size,
+        minWidth: size,
         background: `linear-gradient(135deg, hsl(${h},70%,42%), hsl(${(h + 60) % 360},65%,35%))`,
       }}
     >
@@ -100,7 +99,6 @@ function etiquetaTipo(t?: string): string | null {
   return t;
 }
 
-/** Intervalo de refresco del hilo abierto (ms). */
 const POLL_CONVERSACION_MS = 3500;
 
 function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
@@ -145,20 +143,25 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [selectedId, setSelectedId] = useState<string | null>(paramC || null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [mobileChat, setMobileChat] = useState(false);
 
   useEffect(() => {
-    if (paramC && rows.some((r) => r.id === paramC)) setSelectedId(paramC);
+    if (paramC && rows.some((r) => r.id === paramC)) {
+      setSelectedId(paramC);
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+        setMobileChat(true);
+      }
+    }
   }, [paramC, rows]);
 
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
 
-  const hiloMensajes = useMemo(
-    () => (selected ? mensajesDelHilo(selected.mensajes) : []),
-    [selected?.id, selected?.mensajes]
-  );
+  const hiloMensajes = useMemo(() => {
+    const sel = rows.find((r) => r.id === selectedId);
+    return sel ? mensajesDelHilo(sel.mensajes) : [];
+  }, [rows, selectedId]);
 
   const threadRef = useRef<HTMLDivElement>(null);
-  /** Si el usuario está cerca del final, los nuevos mensajes del poll bajan el scroll automáticamente. */
   const stickToBottomRef = useRef(true);
 
   const syncThreadScroll = useCallback(() => {
@@ -229,6 +232,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const select = useCallback(
     (id: string) => {
       setSelectedId(id);
+      setMobileChat(true);
       const n = new URLSearchParams(sp.toString());
       n.set("c", id);
       router.replace(`/conversaciones?${n.toString()}`, { scroll: false });
@@ -265,59 +269,68 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }
 
   return (
-    <div className="flex h-[min(760px,calc(100dvh-10rem))] min-h-[280px] w-full flex-col overflow-hidden rounded-xl border border-[#7B2FF7]/25 bg-[#0A0118]/50 lg:flex-row">
-      <aside className="flex min-h-0 w-full max-h-[min(300px,42dvh)] flex-shrink-0 flex-col overflow-hidden border-b border-[#7B2FF7]/20 lg:h-full lg:max-h-none lg:max-w-[380px] lg:border-b-0 lg:border-r">
-        <div className="border-b border-[#7B2FF7]/15 p-3">
-          <input
-            type="search"
-            placeholder="Buscar por nombre, número o texto…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-full rounded-input border border-[#7B2FF7]/30 bg-[#0A0118]/60 px-3 py-2.5 text-sm text-white placeholder:text-[#7C6FAE] focus:border-[#7B2FF7] focus:outline-none focus:ring-1 focus:ring-[#7B2FF7]/50"
-          />
+    <div
+      className="flex h-[calc(100dvh-6rem)] w-full min-h-0 max-h-[calc(100dvh-6rem)] overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)]"
+      style={{
+        background:
+          "linear-gradient(90deg, #0A0118 0%, #130826 18%, #0A0118 50%, #130826 82%, #0A0118 100%)",
+      }}
+    >
+      <aside
+        className={`flex min-h-0 w-full shrink-0 flex-col border-r border-[rgba(123,47,247,0.12)] bg-[#130826]/90 md:w-[30%] md:max-w-sm ${
+          mobileChat ? "hidden md:flex" : "flex"
+        }`}
+      >
+        <div className="border-b border-[rgba(123,47,247,0.15)] px-4 py-3">
+          <h1 className="text-sm font-bold text-white">Chats</h1>
+          <p className="text-[11px] text-[#A78BCC]">Clientes · WhatsApp · Meta</p>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="p-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B5A8C]" />
+            <input
+              type="search"
+              placeholder="Buscar conversación…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="w-full rounded-xl border border-[rgba(123,47,247,0.2)] bg-[#1A0A35] py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/50"
+            />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+          <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">Conversaciones</p>
           {filtered.map((c) => {
             const active = c.id === selectedId;
             const requiereHumano = c.atencionHumana === "ACTIVA";
+            const tRel = horaLista(c.ultimoMensaje);
             return (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => select(c.id)}
-                className={`relative flex w-full gap-3 border-b border-[#7B2FF7]/10 px-3 py-3 text-left transition hover:bg-[#2D0A5E]/30 ${
-                  requiereHumano ? "animate-pulse bg-rose-950/10" : ""
-                } ${
-                  active ? "bg-[#2D0A5E]/50" : ""
-                }`}
+                className={`relative mb-1 flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-[#2D0A5E]/50 ${
+                  requiereHumano ? "animate-pulse bg-rose-950/15" : ""
+                } ${active ? "bg-[#2D0A5E]/70 ring-1 ring-[#7B2FF7]/30" : ""}`}
               >
                 {requiereHumano ? (
-                  <span className="absolute right-2 top-2 inline-flex h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-rose-300/40" />
+                  <span className="absolute right-2 top-2 z-10 inline-flex h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-rose-300/40" />
                 ) : null}
-                <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-sm font-semibold text-white ${
-                    requiereHumano ? "ring-2 ring-rose-400/70" : ""
-                  }`}
-                >
-                  {tituloChat(c).slice(0, 2).toUpperCase()}
-                </div>
+                <InboxAvatar label={tituloChat(c)} id={c.numeroCliente || c.id} size={40} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-medium text-white">{tituloChat(c)}</span>
-                    <span className="shrink-0 text-[11px] text-[#7C6FAE]">{horaCorta(c.ultimoMensaje)}</span>
+                    <span className="truncate text-[13px] font-bold text-white">{tituloChat(c)}</span>
+                    <span className="shrink-0 text-[11px] text-[#A78BCC]">{tRel}</span>
                   </div>
-                  <p className="mt-0.5 truncate text-sm text-[#9B8FC4]">{previewMensajes(c.mensajes)}</p>
+                  <p className="truncate text-xs text-[#A78BCC]">{previewMensajes(c.mensajes)}</p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="rounded border border-[#7B2FF7]/40 bg-[#2D0A5E]/50 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
+                    <span className="rounded border border-[rgba(123,47,247,0.25)] bg-[#1A0A35]/80 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
                       {etiquetaCanal(c.canal)}
                     </span>
                     {c.esGrupo ? (
-                      <span className="rounded bg-[#4A1A9E]/60 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">
-                        Grupo
-                      </span>
+                      <span className="rounded bg-[#2D0A5E]/80 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">Grupo</span>
                     ) : null}
                     {!c.iaHabilitada ? (
-                      <span className="rounded bg-[#3D2A1A]/80 px-1.5 py-0.5 text-[10px] text-amber-200/90">
+                      <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] text-amber-200/90">
                         IA off
                       </span>
                     ) : null}
@@ -337,39 +350,65 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
             );
           })}
           {!filtered.length ? (
-            <p className="p-6 text-center text-sm text-[#7C6FAE]">No hay chats que coincidan.</p>
+            <p className="p-6 text-center text-sm text-[#A78BCC]">No hay chats que coincidan.</p>
           ) : null}
         </div>
       </aside>
 
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:h-full">
+      <section
+        className={`relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-b from-[#130826]/40 to-[#0A0118] ${
+          mobileChat ? "flex" : "hidden md:flex"
+        }`}
+      >
         {!selected ? (
-          <div className="flex flex-1 items-center justify-center p-4 text-[#7C6FAE]">
-            Elegí un chat de la lista (vista tipo WhatsApp Web).
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-[#A78BCC]">
+            <Search className="h-12 w-12 opacity-40" />
+            <p className="text-sm text-white/90">Elegí un chat de la lista.</p>
+            <p className="max-w-sm text-xs">Los mensajes se actualizan en vivo mientras el chat está abierto.</p>
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 border-b border-[#7B2FF7]/15 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-white">{tituloChat(selected)}</h2>
-                <span className="rounded border border-[#7B2FF7]/40 px-2 py-0.5 text-xs text-[#C4B5FD]">
-                  {etiquetaCanal(selected.canal)}
-                </span>
+            <header className="flex shrink-0 items-center gap-3 border-b border-[rgba(123,47,247,0.12)] bg-[#1A0A35]/80 px-3 py-2 backdrop-blur-md">
+              <button
+                type="button"
+                className="rounded-lg p-2 text-[#A78BCC] hover:bg-white/10 md:hidden"
+                onClick={() => setMobileChat(false)}
+                aria-label="Volver a la lista"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div className="md:hidden">
+                <InboxAvatar label={tituloChat(selected)} id={selected.numeroCliente || selected.id} size={36} />
               </div>
-              <p className="mt-1 font-mono text-xs text-[#7C6FAE]">{selected.numeroCliente}</p>
-              {selected.atencionHumana === "ACTIVA" ? (
-                <p className="mt-2 rounded-md border border-rose-400/40 bg-rose-950/25 px-2.5 py-1.5 text-xs text-rose-200">
+              <div className="hidden md:block">
+                <InboxAvatar label={tituloChat(selected)} id={selected.numeroCliente || selected.id} size={40} />
+              </div>
+              <div className="min-w-0 flex-1 md:pl-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-[15px] font-bold text-white">{tituloChat(selected)}</h2>
+                  <span className="shrink-0 rounded border border-[rgba(123,47,247,0.25)] px-2 py-0.5 text-[11px] text-[#C4B5FD]">
+                    {etiquetaCanal(selected.canal)}
+                  </span>
+                </div>
+                <p className="truncate font-mono text-[11px] text-[#A78BCC]">{selected.numeroCliente}</p>
+                <p className="truncate text-[11px] text-[#A78BCC]">
+                  {selected.agente?.nombre ? `Agente: ${selected.agente.nombre}` : "Sin agente asignado"}
+                  {" · "}
+                  Historial en vivo
+                </p>
+              </div>
+            </header>
+
+            {selected.atencionHumana === "ACTIVA" ? (
+              <div className="shrink-0 border-b border-rose-500/20 bg-rose-950/20 px-3 py-2">
+                <p className="text-xs text-rose-200">
                   Derivado a humano:{" "}
-                  <strong className="font-semibold text-rose-100">
-                    {selected.agente?.responsableHumano?.trim() || "Asesor asignado del sector"}
+                  <strong className="text-rose-100">
+                    {selected.agente?.responsableHumano?.trim() || "Asesor del sector"}
                   </strong>
                 </p>
-              ) : null}
-              <p className="mt-2 text-xs text-[#7C6FAE]">
-                Historial en vivo: se actualiza solo cada unos segundos mientras tenés este chat abierto (también al
-                volver a la pestaña).
-              </p>
-            </div>
+              </div>
+            ) : null}
 
             <div
               ref={threadRef}
@@ -442,7 +481,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                         className={`msg-enter group relative mb-2 flex w-full ${esCliente ? "justify-start" : "justify-end"}`}
                       >
                         {esCliente ? (
-                          <InboxAvatar label={clienteNombre} id={selected.numeroCliente || selected.id} />
+                          <InboxAvatar label={clienteNombre} id={selected.numeroCliente || selected.id} size={32} />
                         ) : null}
                         <div className="max-w-[min(85%,520px)]">
                           <div className={esCliente ? bubbleCliente : bubbleIa}>
@@ -475,12 +514,12 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               )}
             </div>
 
-            <div className="shrink-0 space-y-4 border-t border-[#7B2FF7]/15 p-4">
+            <div className="shrink-0 space-y-4 border-t border-[rgba(123,47,247,0.2)] bg-[#130826]/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-[#7B2FF7]/40"
+                    className="h-4 w-4 rounded border-[#7B2FF7]/40 accent-[#7B2FF7]"
                     checked={selected.iaHabilitada}
                     disabled={saving}
                     onChange={(e) => void patch(selected.id, { iaHabilitada: e.target.checked })}
@@ -490,9 +529,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#7C6FAE]">
-                  Atención humana
-                </p>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">Atención humana</p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -522,9 +559,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                     Quitar cola
                   </Button>
                 </div>
-                <p className="mt-2 text-xs text-[#7C6FAE]">
-                  Con cola activa la IA no responde hasta que marques resuelta; después el próximo mensaje
-                  del cliente reactiva la IA automáticamente.
+                <p className="mt-2 text-[11px] leading-relaxed text-[#A78BCC]">
+                  Con cola activa la IA no responde hasta que marques resuelta; el próximo mensaje del cliente reactiva
+                  la IA.
                 </p>
               </div>
 
