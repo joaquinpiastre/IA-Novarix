@@ -36,11 +36,14 @@ export default async function ConversacionesPage() {
 
   return (
     <PageShell title="Chats">
-      <p className="mb-3 max-w-2xl text-xs leading-relaxed text-[#A78BCC] md:text-sm">
-        WhatsApp, Messenger e Instagram. Desactivá la IA por chat o marcá atención humana desde la barra inferior del
-        hilo.
+      <p className="mb-3 max-w-2xl shrink-0 text-xs leading-relaxed text-[#A78BCC] md:text-sm">
+        WhatsApp, Messenger e Instagram. La IA puede responder automáticamente; <strong className="text-white/95">vos
+        podés escribir</strong> en el cuadro al pie del chat y el cliente lo recibe en su app. Desactivá la IA o marcá
+        atención humana desde la misma barra.
       </p>
-      <ConversacionesWhatsAppInbox initial={initial} />
+      <div className="h-[calc(100dvh-11.5rem)] min-h-[320px] w-full md:h-[calc(100vh-12.5rem)]">
+        <ConversacionesWhatsAppInbox initial={initial} />
+      </div>
     </PageShell>
   );
 }

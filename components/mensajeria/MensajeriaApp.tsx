@@ -17,6 +17,15 @@ import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "./mensajer
 
 const LS_CANAL = "novarix_mensajeria_canal_activo";
 
+/** URLs de Vercel Blob (store privado) se sirven vía API con token de servidor. */
+function urlBlobParaMostrar(url: string | null | undefined): string | null | undefined {
+  if (!url) return url;
+  if (url.includes("vercel-storage.com")) {
+    return `/api/mensajeria/media?u=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 type CanalRow = {
   id: string;
   nombre: string;
@@ -549,20 +558,37 @@ export function MensajeriaApp() {
                             </div>
                           ) : null}
                           {m.tipo === "imagen" && m.archivoUrl ? (
-                            <button type="button" onClick={() => setLightbox(m.archivoUrl)} className="block">
+                            <button
+                              type="button"
+                              onClick={() => setLightbox(urlBlobParaMostrar(m.archivoUrl) ?? m.archivoUrl)}
+                              className="block"
+                            >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={m.archivoUrl} alt="" className="max-h-56 rounded-lg object-cover" />
+                              <img
+                                src={urlBlobParaMostrar(m.archivoUrl) ?? m.archivoUrl}
+                                alt=""
+                                className="max-h-56 rounded-lg object-cover"
+                              />
                             </button>
                           ) : null}
                           {m.tipo === "video" && m.archivoUrl ? (
-                            <video src={m.archivoUrl} controls className="max-h-64 max-w-full rounded-lg" playsInline />
+                            <video
+                              src={urlBlobParaMostrar(m.archivoUrl) ?? m.archivoUrl}
+                              controls
+                              className="max-h-64 max-w-full rounded-lg"
+                              playsInline
+                            />
                           ) : null}
                           {m.tipo === "audio" && m.archivoUrl ? (
-                            <audio src={m.archivoUrl} controls className="w-full min-w-[200px]" />
+                            <audio
+                              src={urlBlobParaMostrar(m.archivoUrl) ?? m.archivoUrl}
+                              controls
+                              className="w-full min-w-[200px]"
+                            />
                           ) : null}
                           {m.tipo === "archivo" && m.archivoUrl ? (
                             <a
-                              href={m.archivoUrl}
+                              href={urlBlobParaMostrar(m.archivoUrl) ?? m.archivoUrl}
                               download={m.archivoNombre ?? ""}
                               target="_blank"
                               rel="noreferrer"

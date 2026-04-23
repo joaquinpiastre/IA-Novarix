@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const blob = await put(path, buffer, {
-    access: "public",
+    access: "private",
     contentType: type,
     token: process.env.BLOB_READ_WRITE_TOKEN,
   });

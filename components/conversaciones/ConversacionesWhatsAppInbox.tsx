@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "@/components/mensajeria/mensajeria-format";
 
@@ -144,6 +144,12 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [mobileChat, setMobileChat] = useState(false);
+  const [draftCliente, setDraftCliente] = useState("");
+  const [sendingCliente, setSendingCliente] = useState(false);
+
+  useEffect(() => {
+    setDraftCliente("");
+  }, [selectedId]);
 
   useEffect(() => {
     if (paramC && rows.some((r) => r.id === paramC)) {
@@ -268,9 +274,43 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
     setMsg("Listo.");
   }
 
+  async function enviarAlCliente() {
+    if (!selected || !draftCliente.trim() || sendingCliente) return;
+    setSendingCliente(true);
+    setMsg("");
+    try {
+      const r = await fetch(`/api/conversaciones/${selected.id}/enviar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: draftCliente.trim() }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) {
+        setMsg(j.error ?? "No se pudo enviar");
+        return;
+      }
+      const mapped = conversacionApiToRow(j as Record<string, unknown>);
+      if (mapped) {
+        setRows((prev) => {
+          const i = prev.findIndex((row) => row.id === mapped.id);
+          if (i === -1) return [mapped, ...prev];
+          const next = [...prev];
+          next[i] = mapped;
+          return next.sort(
+            (a, b) => (Date.parse(b.ultimoMensaje) || 0) - (Date.parse(a.ultimoMensaje) || 0)
+          );
+        });
+      }
+      setDraftCliente("");
+      setMsg("Enviado al cliente.");
+    } finally {
+      setSendingCliente(false);
+    }
+  }
+
   return (
     <div
-      className="flex h-[calc(100dvh-6rem)] w-full min-h-0 max-h-[calc(100dvh-6rem)] overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)]"
+      className="flex h-full max-h-full w-full min-h-0 overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)]"
       style={{
         background:
           "linear-gradient(90deg, #0A0118 0%, #130826 18%, #0A0118 50%, #130826 82%, #0A0118 100%)",
@@ -426,6 +466,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 hiloMensajes.map((m, i) => {
                   const esCliente = m.role === "user";
                   const esAsistente = m.role === "assistant";
+                  const esStaff = m.role === "staff";
                   const extra = etiquetaTipo(m.tipo);
                   const ts = m.timestamp;
                   const cuando =
@@ -439,7 +480,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                       Number.isNaN(Date.parse(prevTs)) ||
                       etiquetaDia(prevTs) !== etiquetaDia(ts));
 
-                  if (!esCliente && !esAsistente) {
+                  if (!esCliente && !esAsistente && !esStaff) {
                     return (
                       <div key={i}>
                         {showDay ? (
@@ -467,6 +508,11 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                     "relative px-3 py-2 shadow-lg",
                     "rounded-[18px] rounded-br-[4px] bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-white shadow-[#7B2FF7]/25",
                   ].join(" ");
+                  const bubbleEquipo = [
+                    "relative px-3 py-2 shadow-lg",
+                    "rounded-[18px] rounded-br-[4px] bg-gradient-to-br from-[#0D9488] to-[#0369A1] text-white shadow-teal-500/20",
+                  ].join(" ");
+                  const bubbleDerecha = esStaff ? bubbleEquipo : bubbleIa;
 
                   return (
                     <div key={i}>
@@ -484,7 +530,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                           <InboxAvatar label={clienteNombre} id={selected.numeroCliente || selected.id} size={32} />
                         ) : null}
                         <div className="max-w-[min(85%,520px)]">
-                          <div className={esCliente ? bubbleCliente : bubbleIa}>
+                          <div className={esCliente ? bubbleCliente : bubbleDerecha}>
                             {extra ? (
                               <p
                                 className={`mb-1 text-[11px] font-medium ${
@@ -502,7 +548,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                                 esCliente ? "text-[#A78BCC]" : "text-white/80"
                               }`}
                             >
-                              <span>{esCliente ? clienteNombre : "IA / bot"}</span>
+                              <span>
+                                {esCliente ? clienteNombre : esStaff ? "Equipo" : "IA / bot"}
+                              </span>
                               {cuando ? <span>· {cuando}</span> : null}
                             </div>
                           </div>
@@ -561,11 +609,43 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-[#A78BCC]">
                   Con cola activa la IA no responde hasta que marques resuelta; el próximo mensaje del cliente reactiva
-                  la IA.
+                  la IA. Vos podés escribir abajo igual: tu mensaje llega al cliente por WhatsApp / Meta.
                 </p>
               </div>
 
               {msg ? <p className="text-sm text-[#A855F7]">{msg}</p> : null}
+
+              <div className="border-t border-[rgba(123,47,247,0.25)] pt-4">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">
+                  Tu mensaje al cliente
+                </p>
+                <div className="flex items-end gap-2">
+                  <textarea
+                    rows={2}
+                    value={draftCliente}
+                    onChange={(e) => setDraftCliente(e.target.value)}
+                    disabled={saving || sendingCliente}
+                    placeholder="Escribí acá; el cliente lo recibe en su app (WhatsApp / Instagram / Messenger)…"
+                    className="min-h-[48px] flex-1 resize-y rounded-xl border border-[rgba(123,47,247,0.35)] bg-[#1A0A35] px-3 py-2.5 text-sm text-white outline-none ring-1 ring-transparent placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/60 focus:ring-[#7B2FF7]/20 disabled:opacity-50"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void enviarAlCliente();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={saving || sendingCliente || !draftCliente.trim()}
+                    onClick={() => void enviarAlCliente()}
+                    className="shrink-0 gap-1.5"
+                  >
+                    <Send className="h-4 w-4" aria-hidden />
+                    {sendingCliente ? "…" : "Enviar"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}
