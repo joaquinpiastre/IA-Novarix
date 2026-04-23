@@ -47,8 +47,90 @@ model Empresa {
   contactos        Contacto[]
   etapasCRM        EtapaCRM[]
   reglasFollowUp   ReglaFollowUp[]
+  usuarios         Usuario[]
+  canalesInternos  CanalInterno[]
+  mensajesInternos MensajeInterno[]
 
   @@map("empresas")
+}
+
+/// Usuario interno del equipo (misma empresa). Se crea/actualiza al usar la mensajería con la sesión actual.
+model Usuario {
+  id               String   @id @default(cuid())
+  empresaId        String
+  empresa          Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nombre           String
+  email            String
+  activo           Boolean  @default(true)
+  ultimaActividad  DateTime?
+  creadoEn         DateTime @default(now())
+
+  mensajesInternos MensajeInterno[]
+  typingEn         MensajeriaTyping[]
+
+  @@unique([empresaId, email])
+  @@index([empresaId])
+  @@map("usuarios_internos")
+}
+
+model CanalInterno {
+  id          String   @id @default(cuid())
+  empresaId   String
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  icono       String?  @default("💬")
+  tipo        String   @default("general") // general, privado, anuncios
+  creadoEn    DateTime @default(now())
+  miembros    String[] // userIds de Usuario; vacío = todos los de la empresa
+
+  mensajes MensajeInterno[]
+  typing   MensajeriaTyping[]
+
+  @@index([empresaId])
+  @@map("canales_internos")
+}
+
+model MensajeInterno {
+  id              String   @id @default(cuid())
+  canalId         String
+  canal           CanalInterno @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  empresaId       String
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  contenido       String?  @db.Text
+  tipo            String   @default("texto") // texto, imagen, audio, video, archivo
+  archivoUrl      String?
+  archivoNombre   String?
+  archivoTamano   Int? // bytes
+  leido           Boolean  @default(false)
+  leidoPor        String[] // ids de Usuario que leyeron
+  creadoEn        DateTime @default(now())
+  editadoEn       DateTime?
+  eliminado       Boolean  @default(false)
+  replyAId        String?
+  replyA          MensajeInterno?  @relation("Reply", fields: [replyAId], references: [id], onDelete: SetNull)
+  replies         MensajeInterno[] @relation("Reply")
+
+  @@index([canalId, creadoEn])
+  @@index([empresaId])
+  @@map("mensajes_internos")
+}
+
+/// Indicador "escribiendo…" por canal (filas antiguas se ignoran si >5s).
+model MensajeriaTyping {
+  canalId       String
+  usuarioId     String
+  empresaId     String
+  actualizadoEn DateTime @default(now())
+
+  canal CanalInterno @relation(fields: [canalId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([canalId, usuarioId])
+  @@index([empresaId])
+  @@map("mensajeria_typing")
 }
 
 model Agente {

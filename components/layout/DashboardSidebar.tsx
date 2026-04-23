@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { NovarixLogo } from "./NovarixLogo";
 import { SignOutButton } from "./SignOutButton";
+import { MensajeriaNavLink } from "./MensajeriaNavLink";
 
 const items = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/agentes", label: "Agentes", icon: Bot },
   { href: "/conversaciones", label: "Chats", icon: MessageSquare },
+  { href: "/mensajeria", label: "__MENSAJERIA__", icon: MessageSquare },
   { href: "/crm", label: "CRM", icon: Users },
   { href: "/seguimientos", label: "Seguimientos", icon: Bell },
   { href: "/estadisticas", label: "Estadísticas", icon: BarChart2 },
@@ -41,6 +43,9 @@ export function DashboardSidebar() {
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {items.map(({ href, label, icon: Icon }) => {
+          if (label === "__MENSAJERIA__") {
+            return <MensajeriaNavLink key={href} />;
+          }
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
