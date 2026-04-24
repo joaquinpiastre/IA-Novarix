@@ -645,7 +645,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                         {esCliente ? (
                           <InboxAvatar label={clienteNombre} id={selected.numeroCliente || selected.id} size={32} />
                         ) : null}
-                        <div className="max-w-[min(85%,520px)]">
+                        <div className={`max-w-[min(85%,520px)] ${isEditing ? "min-w-[min(85%,360px)]" : ""}`}>
                           <div className={esCliente ? bubbleCliente : bubbleDerecha}>
                             {extra ? (
                               <p
@@ -657,13 +657,13 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                               </p>
                             ) : null}
                             {isEditing ? (
-                              <div className="space-y-2">
+                              <div className="space-y-2 min-h-[140px]">
                                 <textarea
-                                  rows={2}
+                                  rows={4}
                                   value={editingText}
                                   onChange={(e) => setEditingText(e.target.value)}
                                   disabled={updatingMessage}
-                                  className="min-h-[56px] w-full resize-y rounded-lg border border-white/20 bg-black/20 px-2.5 py-2 text-[14px] text-white outline-none placeholder:text-white/60 focus:border-white/45"
+                                  className="min-h-[96px] w-full resize-y rounded-lg border border-white/20 bg-black/20 px-2.5 py-2 text-[14px] text-white outline-none placeholder:text-white/60 focus:border-white/45"
                                 />
                                 <div className="flex items-center justify-end gap-2">
                                   <Button
