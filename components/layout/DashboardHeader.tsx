@@ -11,8 +11,8 @@ export function DashboardHeader({ title }: { title: string }) {
   const isAdmin = data?.user?.rol === "SUPERADMIN";
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#7B2FF7]/20 bg-[#0A0118]/40 px-3 py-3 backdrop-blur-md sm:px-4 md:px-8 md:py-4">
-      <h1 className="text-lg font-bold text-white md:text-xl">{title}</h1>
+    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#7B2FF7]/20 bg-[#0A0118]/40 px-3 py-2 backdrop-blur-md sm:px-4 sm:py-3 md:px-8 md:py-4">
+      <h1 className="text-base font-bold text-white sm:text-lg md:text-xl">{title}</h1>
       <div className="flex items-center gap-2 sm:gap-4">
         <div className="hidden text-right text-sm sm:block">
           <p className="text-white">{data?.user?.name}</p>

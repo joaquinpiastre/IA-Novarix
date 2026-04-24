@@ -15,7 +15,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="flex flex-1">
+      {/* Columna en móvil: barra superior + contenido a ancho completo. Fila desde md (sidebar + main). */}
+      <div className="flex flex-1 flex-col md:flex-row">
         <DashboardSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-auto">
           <main className="flex-1 p-3 sm:p-4 md:p-8">

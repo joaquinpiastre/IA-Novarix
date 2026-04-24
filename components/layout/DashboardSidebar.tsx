@@ -65,7 +65,7 @@ export function DashboardSidebar() {
 
   return (
     <>
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#7B2FF7]/20 bg-[#0A0118]/95 px-3 py-2 backdrop-blur-md md:hidden">
+      <div className="sticky top-0 z-30 flex w-full min-w-0 shrink-0 items-center justify-between border-b border-[#7B2FF7]/20 bg-[#0A0118]/95 px-3 py-2 backdrop-blur-md md:hidden">
         <NovarixLogo />
         <button
           type="button"

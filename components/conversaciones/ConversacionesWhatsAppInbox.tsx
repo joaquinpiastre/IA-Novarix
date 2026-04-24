@@ -657,7 +657,7 @@ export function ConversacionesWhatsAppInbox({
 
   return (
     <div
-      className="flex h-full max-h-full w-full min-h-0 overflow-hidden rounded-2xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_60px_rgba(123,47,247,0.08)]"
+      className="flex h-full max-h-full w-full min-h-0 overflow-hidden rounded-xl border border-[rgba(123,47,247,0.15)] bg-[#0A0118] shadow-[0_0_40px_rgba(123,47,247,0.06)] md:rounded-2xl md:shadow-[0_0_60px_rgba(123,47,247,0.08)]"
       style={{
         background:
           "linear-gradient(90deg, #0A0118 0%, #130826 18%, #0A0118 50%, #130826 82%, #0A0118 100%)",
@@ -668,15 +668,15 @@ export function ConversacionesWhatsAppInbox({
           mobileChat ? "hidden md:flex" : "flex"
         }`}
       >
-        <div className="border-b border-[rgba(123,47,247,0.15)] px-4 py-3">
-          <h1 className="text-sm font-bold text-white">Chats</h1>
-          <p className="text-[11px] text-[#A78BCC]">Clientes · WhatsApp · Meta</p>
+        <div className="border-b border-[rgba(123,47,247,0.15)] px-3 py-2 md:px-4 md:py-3">
+          <h1 className="text-[13px] font-bold text-white md:text-sm">Chats</h1>
+          <p className="text-[10px] text-[#A78BCC] md:text-[11px]">Clientes · WhatsApp · Meta</p>
         </div>
-        <div className="p-3">
+        <div className="p-2.5 md:p-3">
           <button
             type="button"
             onClick={() => setNuevoChatOpen((v) => !v)}
-            className="mb-2 w-full rounded-xl border border-[#7B2FF7]/35 bg-[#2D0A5E]/60 px-3 py-2 text-sm font-semibold text-white hover:bg-[#3A1280]"
+            className="mb-2 w-full rounded-xl border border-[#7B2FF7]/35 bg-[#2D0A5E]/60 px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-[#3A1280] md:text-sm"
           >
             + Nuevo chat
           </button>
@@ -752,8 +752,10 @@ export function ConversacionesWhatsAppInbox({
             </select>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
-          <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">Conversaciones</p>
+        <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-3 md:px-2 md:pb-4">
+          <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#6B5A8C] md:text-[11px]">
+            Conversaciones
+          </p>
           {filtered.map((c) => {
             const active = c.id === selectedId;
             const requiereHumano = c.atencionHumana === "ACTIVA";
@@ -763,7 +765,7 @@ export function ConversacionesWhatsAppInbox({
                 key={c.id}
                 type="button"
                 onClick={() => select(c.id)}
-                className={`relative mb-1 flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-[#2D0A5E]/50 ${
+                className={`relative mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-[#2D0A5E]/50 md:gap-3 md:py-2.5 ${
                   requiereHumano ? "animate-pulse bg-rose-950/15" : ""
                 } ${active ? "bg-[#2D0A5E]/70 ring-1 ring-[#7B2FF7]/30" : ""}`}
               >
@@ -828,7 +830,7 @@ export function ConversacionesWhatsAppInbox({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <header className="flex shrink-0 flex-col gap-2 border-b border-[rgba(123,47,247,0.12)] bg-[#1A0A35]/80 px-3 py-2 backdrop-blur-md">
+            <header className="flex shrink-0 flex-col gap-1.5 border-b border-[rgba(123,47,247,0.12)] bg-[#1A0A35]/80 px-2.5 py-2 backdrop-blur-md md:gap-2 md:px-3">
               <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -864,80 +866,87 @@ export function ConversacionesWhatsAppInbox({
                 </p>
               </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 border-t border-[rgba(123,47,247,0.2)] pt-2">
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1">
+              <div className="flex flex-col gap-2 border-t border-[rgba(123,47,247,0.2)] pt-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1.5 md:inline-flex md:w-auto md:py-1">
                   <input
                     type="text"
                     value={aliasCliente}
                     onChange={(e) => setAliasCliente(e.target.value)}
                     placeholder="Apodo del chat"
-                    className="h-7 w-36 rounded border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-[#6B5A8C] outline-none focus:border-[#7B2FF7]/60"
+                    className="h-8 min-w-0 flex-1 rounded border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-[#6B5A8C] outline-none focus:border-[#7B2FF7]/60 sm:h-7 md:h-7 md:w-36 md:flex-none"
                   />
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
+                    className="shrink-0"
                     disabled={saving || aliasCliente.trim() === (selected.nombreCliente?.trim() || "")}
                     onClick={() => void patch(selected.id, { nombreCliente: aliasCliente.trim() || null })}
                   >
                     Guardar apodo
                   </Button>
                 </div>
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-950/20 px-2 py-1">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-950/20 px-2 py-1.5 md:inline-flex md:w-auto md:py-1">
                   <input
                     type="text"
                     value={etiquetaChat}
                     onChange={(e) => setEtiquetaChat(e.target.value)}
                     placeholder="Etiqueta responsable"
-                    className="h-7 w-36 rounded border border-sky-500/25 bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-sky-300/60 outline-none focus:border-sky-400/70"
+                    className="h-8 min-w-0 flex-1 rounded border border-sky-500/25 bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-sky-300/60 outline-none focus:border-sky-400/70 sm:h-7 md:h-7 md:w-36 md:flex-none"
                   />
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
+                    className="shrink-0"
                     disabled={saving || etiquetaChat.trim() === (selected.etiquetaResponsable?.trim() || "")}
                     onClick={() => void patch(selected.id, { etiquetaResponsable: etiquetaChat.trim() || null })}
                   >
                     Guardar etiqueta
                   </Button>
                 </div>
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1 text-[12px] text-[#C4B5FD]">
+                <label className="inline-flex w-full cursor-pointer items-center gap-2 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2.5 py-2 text-[12px] text-[#C4B5FD] md:w-auto md:py-1">
                   <input
                     type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-[#7B2FF7]/40 accent-[#7B2FF7]"
+                    className="h-3.5 w-3.5 shrink-0 rounded border-[#7B2FF7]/40 accent-[#7B2FF7]"
                     checked={selected.iaHabilitada}
                     disabled={saving}
                     onChange={(e) => void patch(selected.id, { iaHabilitada: e.target.checked })}
                   />
                   IA habilitada
                 </label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={saving || selected.atencionHumana === "ACTIVA"}
-                  onClick={() => void patch(selected.id, { atencionHumana: "ACTIVA" })}
-                >
-                  Necesita humano
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={saving || selected.atencionHumana !== "ACTIVA"}
-                  onClick={() => void patch(selected.id, { atencionHumana: "RESUELTA" })}
-                >
-                  Resuelta
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={saving || selected.atencionHumana === "NINGUNA"}
-                  onClick={() => void patch(selected.id, { atencionHumana: "NINGUNA" })}
-                >
-                  Quitar cola
-                </Button>
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    disabled={saving || selected.atencionHumana === "ACTIVA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "ACTIVA" })}
+                  >
+                    Necesita humano
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                    disabled={saving || selected.atencionHumana !== "ACTIVA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "RESUELTA" })}
+                  >
+                    Resuelta
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="col-span-2 w-full sm:col-span-1 sm:w-auto"
+                    disabled={saving || selected.atencionHumana === "NINGUNA"}
+                    onClick={() => void patch(selected.id, { atencionHumana: "NINGUNA" })}
+                  >
+                    Quitar cola
+                  </Button>
+                </div>
               </div>
             </header>
 
@@ -1346,7 +1355,7 @@ export function ConversacionesWhatsAppInbox({
                         <Smile className="h-4 w-4" />
                       </button>
                       {emojiOpen ? (
-                        <div className="absolute bottom-10 left-0 z-30 shadow-2xl">
+                        <div className="absolute bottom-10 left-0 z-30 max-w-[calc(100vw-1.25rem)] shadow-2xl sm:max-w-none md:left-0">
                           <EmojiPicker
                             theme={Theme.DARK}
                             onEmojiClick={(ev) => {
@@ -1354,8 +1363,8 @@ export function ConversacionesWhatsAppInbox({
                               setEmojiOpen(false);
                               taClienteRef.current?.focus();
                             }}
-                            width={300}
-                            height={380}
+                            width={280}
+                            height={340}
                             searchPlaceholder="Buscar emoji…"
                             previewConfig={{ showPreview: false }}
                           />
