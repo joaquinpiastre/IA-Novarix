@@ -211,10 +211,6 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }, [selectedId]);
 
   useEffect(() => {
-    setAliasCliente(selected?.nombreCliente?.trim() || "");
-  }, [selected?.id, selected?.nombreCliente]);
-
-  useEffect(() => {
     if (!attachOpen && !emojiOpen) return;
     const close = (e: MouseEvent) => {
       const el = composerWrapRef.current;
@@ -237,6 +233,10 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }, [paramC, rows]);
 
   const selected = useMemo(() => rows.find((r) => r.id === selectedId) ?? null, [rows, selectedId]);
+
+  useEffect(() => {
+    setAliasCliente(selected?.nombreCliente?.trim() || "");
+  }, [selected?.id, selected?.nombreCliente]);
 
   const hiloMensajes = useMemo(() => {
     const sel = rows.find((r) => r.id === selectedId);
