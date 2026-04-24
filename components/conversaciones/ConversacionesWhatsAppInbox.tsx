@@ -408,7 +408,8 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <header className="flex shrink-0 items-center gap-3 border-b border-[rgba(123,47,247,0.12)] bg-[#1A0A35]/80 px-3 py-2 backdrop-blur-md">
+            <header className="flex shrink-0 flex-col gap-2 border-b border-[rgba(123,47,247,0.12)] bg-[#1A0A35]/80 px-3 py-2 backdrop-blur-md">
+              <div className="flex items-center gap-3">
               <button
                 type="button"
                 className="rounded-lg p-2 text-[#A78BCC] hover:bg-white/10 md:hidden"
@@ -436,6 +437,46 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                   {" · "}
                   Historial en vivo
                 </p>
+              </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-[rgba(123,47,247,0.2)] pt-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1 text-[12px] text-[#C4B5FD]">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 rounded border-[#7B2FF7]/40 accent-[#7B2FF7]"
+                    checked={selected.iaHabilitada}
+                    disabled={saving}
+                    onChange={(e) => void patch(selected.id, { iaHabilitada: e.target.checked })}
+                  />
+                  IA habilitada
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={saving || selected.atencionHumana === "ACTIVA"}
+                  onClick={() => void patch(selected.id, { atencionHumana: "ACTIVA" })}
+                >
+                  Necesita humano
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={saving || selected.atencionHumana !== "ACTIVA"}
+                  onClick={() => void patch(selected.id, { atencionHumana: "RESUELTA" })}
+                >
+                  Resuelta
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={saving || selected.atencionHumana === "NINGUNA"}
+                  onClick={() => void patch(selected.id, { atencionHumana: "NINGUNA" })}
+                >
+                  Quitar cola
+                </Button>
               </div>
             </header>
 
@@ -562,62 +603,12 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               )}
             </div>
 
-            <div className="shrink-0 space-y-3 border-t border-[rgba(123,47,247,0.2)] bg-[#130826]/95 px-3 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-[#C4B5FD]">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-[#7B2FF7]/40 accent-[#7B2FF7]"
-                    checked={selected.iaHabilitada}
-                    disabled={saving}
-                    onChange={(e) => void patch(selected.id, { iaHabilitada: e.target.checked })}
-                  />
-                  IA habilitada en este chat
-                </label>
-              </div>
-
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">Atención humana</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={saving || selected.atencionHumana === "ACTIVA"}
-                    onClick={() => void patch(selected.id, { atencionHumana: "ACTIVA" })}
-                  >
-                    Necesita humano (activa)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={saving || selected.atencionHumana !== "ACTIVA"}
-                    onClick={() => void patch(selected.id, { atencionHumana: "RESUELTA" })}
-                  >
-                    Marcar resuelta
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={saving || selected.atencionHumana === "NINGUNA"}
-                    onClick={() => void patch(selected.id, { atencionHumana: "NINGUNA" })}
-                  >
-                    Quitar cola
-                  </Button>
-                </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-[#A78BCC]">
-                  Con cola activa la IA no responde hasta que marques resuelta; el próximo mensaje del cliente reactiva
-                  la IA. Vos podés escribir abajo igual: tu mensaje llega al cliente por WhatsApp / Meta.
-                </p>
-              </div>
-
+            <div className="shrink-0 space-y-2 border-t border-[rgba(123,47,247,0.2)] bg-[#130826]/95 px-3 py-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               {msg ? (
                 <p className="whitespace-pre-wrap break-words text-sm text-[#A855F7]">{msg}</p>
               ) : null}
 
-              <div className="border-t border-[rgba(123,47,247,0.25)] pt-3">
+              <div>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">
                   Tu mensaje al cliente
                 </p>
