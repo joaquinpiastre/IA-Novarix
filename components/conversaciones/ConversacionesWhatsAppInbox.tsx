@@ -161,10 +161,8 @@ function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
 
 export function ConversacionesWhatsAppInbox({
   initial,
-  miEtiquetaUsuario,
 }: {
   initial: InboxRow[];
-  miEtiquetaUsuario?: string | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -331,19 +329,10 @@ export function ConversacionesWhatsAppInbox({
     if (filtroEtiqueta === "__SIN_ETIQUETA__") {
       return porTexto.filter((r) => !r.etiquetaResponsable?.trim());
     }
-    if (filtroEtiqueta === "__MIS_DERIVADAS__") {
-      const mi = (miEtiquetaUsuario ?? "").trim().toLowerCase();
-      if (!mi) return porTexto;
-      return porTexto.filter(
-        (r) =>
-          (r.etiquetaResponsable?.trim().toLowerCase() ?? "") === mi &&
-          r.atencionHumana === "ACTIVA"
-      );
-    }
     return porTexto.filter(
       (r) => (r.etiquetaResponsable?.trim().toLowerCase() ?? "") === filtroEtiqueta.toLowerCase()
     );
-  }, [rows, q, filtroEtiqueta, miEtiquetaUsuario]);
+  }, [rows, q, filtroEtiqueta]);
 
   const etiquetasDisponibles = useMemo(() => {
     const set = new Set<string>();
@@ -351,9 +340,8 @@ export function ConversacionesWhatsAppInbox({
       const e = r.etiquetaResponsable?.trim();
       if (e) set.add(e);
     }
-    if (miEtiquetaUsuario?.trim()) set.add(miEtiquetaUsuario.trim());
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
-  }, [rows, miEtiquetaUsuario]);
+  }, [rows]);
 
   const select = useCallback(
     (id: string) => {
@@ -739,7 +727,6 @@ export function ConversacionesWhatsAppInbox({
             >
               <option value="__TODAS__">Todas las etiquetas</option>
               <option value="__SIN_ETIQUETA__">Sin etiqueta</option>
-              <option value="__MIS_DERIVADAS__">Mis derivadas</option>
               {etiquetasDisponibles.map((e) => (
                 <option key={e} value={e}>
                   {e}

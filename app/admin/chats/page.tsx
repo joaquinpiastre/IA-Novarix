@@ -67,7 +67,7 @@ export default async function AdminChatsPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ConversacionesWhatsAppInbox initial={initial} miEtiquetaUsuario={session?.user?.name ?? null} />
+        <ConversacionesWhatsAppInbox initial={initial} />
       </div>
     </div>
   );
