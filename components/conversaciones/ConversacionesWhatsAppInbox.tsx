@@ -172,6 +172,7 @@ export function ConversacionesWhatsAppInbox({
   const [q, setQ] = useState("");
   const [filtroEtiqueta, setFiltroEtiqueta] = useState("__TODAS__");
   const [nuevoChatOpen, setNuevoChatOpen] = useState(false);
+  const [nuevoCanal, setNuevoCanal] = useState<CanalConversacion>("WHATSAPP");
   const [nuevoNumero, setNuevoNumero] = useState("");
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoMensaje, setNuevoMensaje] = useState("");
@@ -525,7 +526,7 @@ export function ConversacionesWhatsAppInbox({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          canal: "WHATSAPP",
+          canal: nuevoCanal,
           numeroCliente: numero,
           nombreCliente: nuevoNombre.trim() || null,
           texto,
@@ -550,6 +551,7 @@ export function ConversacionesWhatsAppInbox({
       setNuevoNumero("");
       setNuevoNombre("");
       setNuevoMensaje("");
+      setNuevoCanal("WHATSAPP");
       setNuevoChatOpen(false);
       setMsg("Chat iniciado y mensaje enviado.");
     } finally {
@@ -683,9 +685,24 @@ export function ConversacionesWhatsAppInbox({
               <input
                 value={nuevoNumero}
                 onChange={(e) => setNuevoNumero(e.target.value)}
-                placeholder="Número WhatsApp (ej: 54911...)"
+                placeholder={
+                  nuevoCanal === "WHATSAPP"
+                    ? "Número WhatsApp (ej: 54911...)"
+                    : nuevoCanal === "MESSENGER"
+                      ? "PSID de Messenger"
+                      : "IG SID / sender id"
+                }
                 className="mb-2 w-full rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
               />
+              <select
+                value={nuevoCanal}
+                onChange={(e) => setNuevoCanal(e.target.value as CanalConversacion)}
+                className="mb-2 w-full rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white"
+              >
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="MESSENGER">Messenger</option>
+                <option value="INSTAGRAM">Instagram</option>
+              </select>
               <input
                 value={nuevoNombre}
                 onChange={(e) => setNuevoNombre(e.target.value)}

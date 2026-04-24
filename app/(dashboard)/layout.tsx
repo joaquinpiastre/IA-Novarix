@@ -17,8 +17,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex min-h-screen flex-col">
       <div className="flex flex-1">
         <DashboardSidebar />
-        <div className="flex flex-1 flex-col overflow-auto">
-          <main className="flex-1 p-8">
+        <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+          <main className="flex-1 p-3 sm:p-4 md:p-8">
             {impersonando ? <ExitImpersonation /> : null}
             {children}
           </main>

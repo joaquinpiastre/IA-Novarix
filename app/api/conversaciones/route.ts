@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import { obtenerOCrearContacto } from "@/lib/crm";
 import { enviarMensajeWhatsApp } from "@/lib/whatsapp";
-import { textoErrorGraphApi } from "@/lib/meta-graph";
+import { enviarMensajeInstagram, enviarMensajeMessenger, textoErrorGraphApi } from "@/lib/meta-graph";
 
 export async function GET(req: Request) {
   const ctx = await requireEmpresaContext();
@@ -67,20 +67,23 @@ export async function POST(req: Request) {
   if (!texto) {
     return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
   }
-  if (canal !== "WHATSAPP") {
-    return NextResponse.json({ error: "Solo se permite iniciar chats de WhatsApp desde esta vista." }, { status: 400 });
-  }
-
   const empresa = await prisma.empresa.findFirst({ where: { id: ctx.empresaId, activo: true } });
   if (!empresa) return NextResponse.json({ error: "Empresa no encontrada" }, { status: 403 });
-  if (!empresa.whatsappPhoneId?.trim() || !empresa.whatsappToken?.trim()) {
+  if (canal === "WHATSAPP" && (!empresa.whatsappPhoneId?.trim() || !empresa.whatsappToken?.trim())) {
     return NextResponse.json(
       { error: "WhatsApp no configurado: completá Phone ID y token en Configuración." },
       { status: 400 }
     );
   }
+  if (canal === "MESSENGER" && !empresa.metaPageToken?.trim()) {
+    return NextResponse.json({ error: "Messenger no configurado (token de página)." }, { status: 400 });
+  }
+  if (canal === "INSTAGRAM" && (!empresa.metaPageToken?.trim() || !empresa.metaInstagramId?.trim())) {
+    return NextResponse.json({ error: "Instagram no configurado." }, { status: 400 });
+  }
 
-  const contacto = await obtenerOCrearContacto(ctx.empresaId, numeroCliente, nombreCliente, "WHATSAPP");
+  const origen = canal === "WHATSAPP" ? "WHATSAPP" : canal === "MESSENGER" ? "FACEBOOK" : "INSTAGRAM";
+  const contacto = await obtenerOCrearContacto(ctx.empresaId, numeroCliente, nombreCliente, origen);
   const agente =
     (await prisma.agente.findFirst({
       where: { empresaId: ctx.empresaId, activo: true, esDefault: true },
@@ -110,12 +113,24 @@ export async function POST(req: Request) {
     });
   }
 
-  const res = await enviarMensajeWhatsApp({
-    phoneNumberId: empresa.whatsappPhoneId.trim(),
-    accessToken: empresa.whatsappToken.trim(),
-    to: numeroCliente,
-    text: texto,
-  });
+  let res: Response;
+  if (canal === "WHATSAPP") {
+    res = await enviarMensajeWhatsApp({
+      phoneNumberId: empresa.whatsappPhoneId!.trim(),
+      accessToken: empresa.whatsappToken!.trim(),
+      to: numeroCliente,
+      text: texto,
+    });
+  } else if (canal === "MESSENGER") {
+    res = await enviarMensajeMessenger(empresa.metaPageToken!.trim(), numeroCliente, texto);
+  } else {
+    res = await enviarMensajeInstagram(
+      empresa.metaPageToken!.trim(),
+      empresa.metaInstagramId!.trim(),
+      numeroCliente,
+      texto
+    );
+  }
   const errBody = await res.text();
   if (!res.ok) {
     return NextResponse.json(

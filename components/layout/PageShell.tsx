@@ -10,7 +10,7 @@ export function PageShell({
   return (
     <>
       <DashboardHeader title={title} />
-      <div className="mt-8">{children}</div>
+      <div className="mt-3 md:mt-8">{children}</div>
     </>
   );
 }

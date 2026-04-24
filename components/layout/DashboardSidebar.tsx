@@ -12,7 +12,10 @@ import {
   Users,
   Bell,
   BarChart2,
+  Menu,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 import { NovarixLogo } from "./NovarixLogo";
 import { SignOutButton } from "./SignOutButton";
 import { MensajeriaNavLink } from "./MensajeriaNavLink";
@@ -32,43 +35,79 @@ const items = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  const menuItems = (
+    <>
+      {items.map(({ href, label, icon: Icon }) => {
+        if (label === "__MENSAJERIA__") {
+          return <MensajeriaNavLink key={href} />;
+        }
+        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={() => setOpen(false)}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              active
+                ? "bg-[#7B2FF7]/20 text-white"
+                : "text-[#C4B5FD] hover:bg-[#2D0A5E]/60"
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0 opacity-90" />
+            {label}
+          </Link>
+        );
+      })}
+    </>
+  );
 
   return (
-    <aside className="flex w-60 flex-col border-r border-[#7B2FF7]/20 bg-[#0A0118]/80 backdrop-blur-md">
-      <div className="border-b border-[#7B2FF7]/20 p-6">
+    <>
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#7B2FF7]/20 bg-[#0A0118]/95 px-3 py-2 backdrop-blur-md md:hidden">
         <NovarixLogo />
-        <p className="mt-2 text-xs italic text-[#7C6FAE]">
-          Automatizá tu atención. Escalá tu negocio.
-        </p>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-lg p-2 text-[#C4B5FD] hover:bg-[#2D0A5E]/60 hover:text-white"
+          aria-label="Abrir menú"
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-3">
-        {items.map(({ href, label, icon: Icon }) => {
-          if (label === "__MENSAJERIA__") {
-            return <MensajeriaNavLink key={href} />;
-          }
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-[#7B2FF7]/20 text-white"
-                  : "text-[#C4B5FD] hover:bg-[#2D0A5E]/60"
-              }`}
-            >
-              <Icon className="h-4 w-4 shrink-0 opacity-90" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="border-t border-[#7B2FF7]/20 p-3">
-        <SignOutButton
-          variant="ghost"
-          label="Cerrar sesión"
-          className="w-full justify-center text-[#C4B5FD] hover:text-white"
+
+      {open ? (
+        <div
+          className="fixed inset-0 z-20 bg-black/55 md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden
         />
+      ) : null}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-72 max-w-[85vw] flex-col border-r border-[#7B2FF7]/20 bg-[#0A0118]/95 backdrop-blur-md transition-transform md:static md:w-60 md:max-w-none md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="border-b border-[#7B2FF7]/20 p-6">
+          <NovarixLogo />
+          <p className="mt-2 text-xs italic text-[#7C6FAE]">
+            Automatizá tu atención. Escalá tu negocio.
+          </p>
+        </div>
+        <nav className="flex flex-1 flex-col gap-1 p-3">{menuItems}</nav>
+        <div className="border-t border-[#7B2FF7]/20 p-3">
+          <SignOutButton
+            variant="ghost"
+            label="Cerrar sesión"
+            className="w-full justify-center text-[#C4B5FD] hover:text-white"
+          />
+        </div>
+      </aside>
+    </>
+  );
+}
       </div>
     </aside>
   );
