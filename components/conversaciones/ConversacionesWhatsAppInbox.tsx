@@ -12,6 +12,7 @@ type ThreadMsg = {
   content: string;
   timestamp?: string;
   tipo?: string;
+  editedAt?: string;
 };
 
 export type InboxRow = {
@@ -86,7 +87,8 @@ function mensajesDelHilo(raw: unknown): ThreadMsg[] {
       const content = typeof o.content === "string" ? o.content : "";
       const timestamp = typeof o.timestamp === "string" ? o.timestamp : undefined;
       const tipo = typeof o.tipo === "string" ? o.tipo : undefined;
-      return { role, content, timestamp, tipo };
+      const editedAt = typeof o.editedAt === "string" ? o.editedAt : undefined;
+      return { role, content, timestamp, tipo, editedAt };
     })
     .filter((m) => m.role && (m.content.trim() || m.tipo));
 }
@@ -146,9 +148,14 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [mobileChat, setMobileChat] = useState(false);
   const [draftCliente, setDraftCliente] = useState("");
   const [sendingCliente, setSendingCliente] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [updatingMessage, setUpdatingMessage] = useState(false);
 
   useEffect(() => {
     setDraftCliente("");
+    setEditingIndex(null);
+    setEditingText("");
   }, [selectedId]);
 
   useEffect(() => {
@@ -305,6 +312,73 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
       setMsg("Enviado al cliente.");
     } finally {
       setSendingCliente(false);
+    }
+  }
+
+  async function editarMensaje(index: number) {
+    if (!selected || updatingMessage) return;
+    const texto = editingText.trim();
+    if (!texto) {
+      setMsg("El mensaje no puede quedar vacío.");
+      return;
+    }
+    setUpdatingMessage(true);
+    setMsg("");
+    try {
+      const r = await fetch(`/api/conversaciones/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accionMensaje: "editar",
+          mensajeIndex: index,
+          mensajeTexto: texto,
+        }),
+      });
+      const j = (await r.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+      if (!r.ok) {
+        setMsg(j.error ?? "No se pudo editar el mensaje");
+        return;
+      }
+      const mapped = conversacionApiToRow(j);
+      if (mapped) {
+        setRows((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+      }
+      setEditingIndex(null);
+      setEditingText("");
+      setMsg("Mensaje editado.");
+    } finally {
+      setUpdatingMessage(false);
+    }
+  }
+
+  async function eliminarMensaje(index: number) {
+    if (!selected || updatingMessage) return;
+    if (typeof window !== "undefined" && !window.confirm("¿Eliminar este mensaje del historial?")) return;
+    setUpdatingMessage(true);
+    setMsg("");
+    try {
+      const r = await fetch(`/api/conversaciones/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accionMensaje: "eliminar",
+          mensajeIndex: index,
+        }),
+      });
+      const j = (await r.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+      if (!r.ok) {
+        setMsg(j.error ?? "No se pudo eliminar el mensaje");
+        return;
+      }
+      const mapped = conversacionApiToRow(j);
+      if (mapped) {
+        setRows((prev) => prev.map((row) => (row.id === mapped.id ? mapped : row)));
+      }
+      setEditingIndex(null);
+      setEditingText("");
+      setMsg("Mensaje eliminado.");
+    } finally {
+      setUpdatingMessage(false);
     }
   }
 
@@ -508,6 +582,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                   const esCliente = m.role === "user";
                   const esAsistente = m.role === "assistant";
                   const esStaff = m.role === "staff";
+                  const isEditing = editingIndex === i;
                   const extra = etiquetaTipo(m.tipo);
                   const ts = m.timestamp;
                   const cuando =
@@ -581,9 +656,43 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                                 {extra}
                               </p>
                             ) : null}
-                            <div className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
-                              {m.content.trim() ? renderRichText(m.content.trim()) : "—"}
-                            </div>
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  rows={2}
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                  disabled={updatingMessage}
+                                  className="min-h-[56px] w-full resize-y rounded-lg border border-white/20 bg-black/20 px-2.5 py-2 text-[14px] text-white outline-none placeholder:text-white/60 focus:border-white/45"
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={updatingMessage}
+                                    onClick={() => {
+                                      setEditingIndex(null);
+                                      setEditingText("");
+                                    }}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={updatingMessage || !editingText.trim()}
+                                    onClick={() => void editarMensaje(i)}
+                                  >
+                                    Guardar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+                                {m.content.trim() ? renderRichText(m.content.trim()) : "—"}
+                              </div>
+                            )}
                             <div
                               className={`mt-1 flex flex-wrap items-center gap-1 text-[11px] ${
                                 esCliente ? "text-[#A78BCC]" : "text-white/80"
@@ -593,8 +702,32 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                                 {esCliente ? clienteNombre : esStaff ? "Equipo" : "IA / bot"}
                               </span>
                               {cuando ? <span>· {cuando}</span> : null}
+                              {m.editedAt ? <span>· editado</span> : null}
                             </div>
                           </div>
+                          {!isEditing ? (
+                            <div className={`mt-1 flex items-center gap-2 text-[11px] ${esCliente ? "justify-start" : "justify-end"}`}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingIndex(i);
+                                  setEditingText(m.content);
+                                }}
+                                disabled={updatingMessage}
+                                className="text-[#A78BCC] transition hover:text-white disabled:opacity-50"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void eliminarMensaje(i)}
+                                disabled={updatingMessage}
+                                className="text-rose-300 transition hover:text-rose-100 disabled:opacity-50"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>

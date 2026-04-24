@@ -22,12 +22,48 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     atencionHumana?: AtencionHumanaEstado;
     estado?: EstadoConversacion;
     nombreCliente?: string | null;
+    accionMensaje?: "editar" | "eliminar";
+    mensajeIndex?: number;
+    mensajeTexto?: string;
   };
 
   const existing = await prisma.conversacion.findFirst({
     where: { id: params.id, empresaId: ctx.empresaId },
   });
   if (!existing) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+
+  if (body.accionMensaje) {
+    const idx = Number.isInteger(body.mensajeIndex) ? Number(body.mensajeIndex) : -1;
+    const prev = Array.isArray(existing.mensajes) ? [...existing.mensajes] : [];
+    if (idx < 0 || idx >= prev.length) {
+      return NextResponse.json({ error: "mensajeIndex inválido" }, { status: 400 });
+    }
+
+    if (body.accionMensaje === "editar") {
+      const nuevoTexto = typeof body.mensajeTexto === "string" ? body.mensajeTexto.trim() : "";
+      if (!nuevoTexto) {
+        return NextResponse.json({ error: "mensajeTexto requerido" }, { status: 400 });
+      }
+      const target = prev[idx];
+      if (!target || typeof target !== "object" || Array.isArray(target)) {
+        return NextResponse.json({ error: "Mensaje inválido" }, { status: 400 });
+      }
+      prev[idx] = {
+        ...(target as Record<string, unknown>),
+        content: nuevoTexto,
+        editedAt: new Date().toISOString(),
+      };
+    } else {
+      prev.splice(idx, 1);
+    }
+
+    const updated = await prisma.conversacion.update({
+      where: { id: params.id },
+      data: { mensajes: prev },
+      include: { agente: { select: { nombre: true, id: true, responsableHumano: true } } },
+    });
+    return NextResponse.json(updated);
+  }
 
   const data: {
     iaHabilitada?: boolean;
