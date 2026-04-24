@@ -27,7 +27,7 @@ export default async function AdminChatsPage() {
             href="/admin/empresas"
             className="inline-flex rounded-lg border border-[#7B2FF7]/40 bg-[#2D0A5E]/60 px-3 py-2 text-sm font-medium text-white hover:bg-[#3A1280]"
           >
-            Ir a Empresas y seleccionar "Ver como empresa"
+            Ir a Empresas y seleccionar &quot;Ver como empresa&quot;
           </Link>
         </div>
       </div>

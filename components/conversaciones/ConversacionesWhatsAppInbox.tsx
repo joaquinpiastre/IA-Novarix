@@ -170,6 +170,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [mobileChat, setMobileChat] = useState(false);
   const [draftCliente, setDraftCliente] = useState("");
   const [sendingCliente, setSendingCliente] = useState(false);
+  const [aliasCliente, setAliasCliente] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
   const [updatingMessage, setUpdatingMessage] = useState(false);
@@ -198,6 +199,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
 
   useEffect(() => {
     setDraftCliente("");
+    setAliasCliente("");
     setEditingIndex(null);
     setEditingText("");
     setPendingAdjunto(null);
@@ -207,6 +209,10 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
     setRecording(false);
     setRecordMs(0);
   }, [selectedId]);
+
+  useEffect(() => {
+    setAliasCliente(selected?.nombreCliente?.trim() || "");
+  }, [selected?.id, selected?.nombreCliente]);
 
   useEffect(() => {
     if (!attachOpen && !emojiOpen) return;
@@ -700,6 +706,24 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 border-t border-[rgba(123,47,247,0.2)] pt-2">
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1">
+                  <input
+                    type="text"
+                    value={aliasCliente}
+                    onChange={(e) => setAliasCliente(e.target.value)}
+                    placeholder="Apodo del chat"
+                    className="h-7 w-36 rounded border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-[#6B5A8C] outline-none focus:border-[#7B2FF7]/60"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={saving || aliasCliente.trim() === (selected.nombreCliente?.trim() || "")}
+                    onClick={() => void patch(selected.id, { nombreCliente: aliasCliente.trim() || null })}
+                  >
+                    Guardar apodo
+                  </Button>
+                </div>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1 text-[12px] text-[#C4B5FD]">
                   <input
                     type="checkbox"
