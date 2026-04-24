@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
-import { ArrowLeft, Search, Send } from "lucide-react";
+import { ArrowLeft, Mic, Paperclip, Search, Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "@/components/mensajeria/mensajeria-format";
 
@@ -608,18 +608,41 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 <p className="whitespace-pre-wrap break-words text-sm text-[#A855F7]">{msg}</p>
               ) : null}
 
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">
-                  Tu mensaje al cliente
-                </p>
-                <div className="flex items-end gap-2">
+              <div className="rounded-2xl border border-[rgba(123,47,247,0.2)] bg-[#100424] px-2.5 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-[#A78BCC]">
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
+                      title="Adjuntar (próximamente)"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
+                      title="Audio (próximamente)"
+                    >
+                      <Mic className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
+                      title="Emojis (próximamente)"
+                    >
+                      <Smile className="h-4 w-4" />
+                    </button>
+                  </div>
                   <textarea
-                    rows={2}
+                    rows={1}
                     value={draftCliente}
                     onChange={(e) => setDraftCliente(e.target.value)}
                     disabled={saving || sendingCliente}
-                    placeholder="Escribí acá; el cliente lo recibe en su app (WhatsApp / Instagram / Messenger)…"
-                    className="min-h-[48px] flex-1 resize-y rounded-xl border border-[rgba(123,47,247,0.35)] bg-[#1A0A35] px-3 py-2.5 text-sm text-white outline-none ring-1 ring-transparent placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/60 focus:ring-[#7B2FF7]/20 disabled:opacity-50"
+                    placeholder="Escribí un mensaje..."
+                    className="max-h-28 min-h-[38px] flex-1 resize-none rounded-full border border-[rgba(123,47,247,0.25)] bg-[#1A0A35]/80 px-4 py-2.5 text-sm text-white outline-none ring-1 ring-transparent placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/60 focus:ring-[#7B2FF7]/20 disabled:opacity-50"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -632,10 +655,10 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                     size="sm"
                     disabled={saving || sendingCliente || !draftCliente.trim()}
                     onClick={() => void enviarAlCliente()}
-                    className="shrink-0 gap-1.5"
+                    className="h-9 w-9 shrink-0 rounded-full p-0"
+                    aria-label="Enviar mensaje"
                   >
                     <Send className="h-4 w-4" aria-hidden />
-                    {sendingCliente ? "…" : "Enviar"}
                   </Button>
                 </div>
               </div>
