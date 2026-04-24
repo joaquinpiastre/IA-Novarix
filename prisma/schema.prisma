@@ -183,6 +183,7 @@ model Conversacion {
   agenteId       String?
   numeroCliente  String // teléfono o id de grupo (@g.us)
   nombreCliente  String?
+  etiquetaResponsable String? // etiqueta opcional para asignar el chat a una persona del equipo
   estado         EstadoConversacion   @default(ACTIVA)
   esGrupo        Boolean              @default(false) // WhatsApp grupo (from suele terminar en @g.us)
   iaHabilitada   Boolean              @default(true) // si false, no se llama a la IA en este chat

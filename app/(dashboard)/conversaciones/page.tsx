@@ -25,6 +25,7 @@ export default async function ConversacionesPage() {
     canal: c.canal,
     numeroCliente: c.numeroCliente,
     nombreCliente: c.nombreCliente,
+    etiquetaResponsable: c.etiquetaResponsable,
     ultimoMensaje: c.ultimoMensaje.toISOString(),
     estado: c.estado,
     esGrupo: c.esGrupo,
@@ -38,7 +39,7 @@ export default async function ConversacionesPage() {
     <PageShell title="Chats">
       <div className="flex h-[calc(100dvh-6.75rem)] min-h-[360px] w-full flex-col md:h-[calc(100vh-7.25rem)]">
         <div className="min-h-0 flex-1 overflow-hidden">
-          <ConversacionesWhatsAppInbox initial={initial} />
+          <ConversacionesWhatsAppInbox initial={initial} miEtiquetaUsuario={session?.user?.name ?? null} />
         </div>
         <p className="mt-2 max-w-3xl shrink-0 border-t border-[rgba(123,47,247,0.12)] pt-2.5 text-xs leading-relaxed text-[#A78BCC] md:text-sm">
           WhatsApp, Messenger e Instagram. La IA puede responder automáticamente;{" "}

@@ -22,6 +22,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     atencionHumana?: AtencionHumanaEstado;
     estado?: EstadoConversacion;
     nombreCliente?: string | null;
+    etiquetaResponsable?: string | null;
     accionMensaje?: "editar" | "eliminar";
     mensajeIndex?: number;
     mensajeTexto?: string;
@@ -70,10 +71,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     atencionHumana?: AtencionHumanaEstado;
     estado?: EstadoConversacion;
     nombreCliente?: string | null;
+    etiquetaResponsable?: string | null;
   } = {};
 
   if (typeof body.iaHabilitada === "boolean") data.iaHabilitada = body.iaHabilitada;
   if (body.nombreCliente !== undefined) data.nombreCliente = body.nombreCliente?.trim() || null;
+  if (body.etiquetaResponsable !== undefined) {
+    data.etiquetaResponsable = body.etiquetaResponsable?.trim() || null;
+  }
 
   if (body.atencionHumana != null) {
     const allowed: AtencionHumanaEstado[] = ["NINGUNA", "ACTIVA", "RESUELTA"];

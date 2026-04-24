@@ -38,6 +38,7 @@ export type InboxRow = {
   canal: CanalConversacion;
   numeroCliente: string;
   nombreCliente: string | null;
+  etiquetaResponsable?: string | null;
   ultimoMensaje: string;
   estado: string;
   esGrupo: boolean;
@@ -140,6 +141,7 @@ function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
     canal: conv.canal as InboxRow["canal"],
     numeroCliente: String(conv.numeroCliente ?? ""),
     nombreCliente: (conv.nombreCliente as string | null) ?? null,
+    etiquetaResponsable: (conv.etiquetaResponsable as string | null) ?? null,
     ultimoMensaje,
     estado: String(conv.estado ?? ""),
     esGrupo: Boolean(conv.esGrupo),
@@ -157,13 +159,20 @@ function conversacionApiToRow(conv: Record<string, unknown>): InboxRow | null {
   };
 }
 
-export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }) {
+export function ConversacionesWhatsAppInbox({
+  initial,
+  miEtiquetaUsuario,
+}: {
+  initial: InboxRow[];
+  miEtiquetaUsuario?: string | null;
+}) {
   const router = useRouter();
   const sp = useSearchParams();
   const paramC = sp.get("c");
 
   const [rows, setRows] = useState<InboxRow[]>(initial);
   const [q, setQ] = useState("");
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState("__TODAS__");
   const [nuevoChatOpen, setNuevoChatOpen] = useState(false);
   const [nuevoNumero, setNuevoNumero] = useState("");
   const [nuevoNombre, setNuevoNombre] = useState("");
@@ -176,6 +185,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [draftCliente, setDraftCliente] = useState("");
   const [sendingCliente, setSendingCliente] = useState(false);
   const [aliasCliente, setAliasCliente] = useState("");
+  const [etiquetaChat, setEtiquetaChat] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
   const [updatingMessage, setUpdatingMessage] = useState(false);
@@ -205,6 +215,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   useEffect(() => {
     setDraftCliente("");
     setAliasCliente("");
+    setEtiquetaChat("");
     setEditingIndex(null);
     setEditingText("");
     setPendingAdjunto(null);
@@ -241,7 +252,8 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
 
   useEffect(() => {
     setAliasCliente(selected?.nombreCliente?.trim() || "");
-  }, [selected?.id, selected?.nombreCliente]);
+    setEtiquetaChat(selected?.etiquetaResponsable?.trim() || "");
+  }, [selected?.id, selected?.nombreCliente, selected?.etiquetaResponsable]);
 
   const hiloMensajes = useMemo(() => {
     const sel = rows.find((r) => r.id === selectedId);
@@ -307,14 +319,41 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t) return rows;
-    return rows.filter(
+    const porTexto = !t
+      ? rows
+      : rows.filter(
       (r) =>
         r.numeroCliente.toLowerCase().includes(t) ||
         (r.nombreCliente?.toLowerCase().includes(t) ?? false) ||
         previewMensajes(r.mensajes).toLowerCase().includes(t)
     );
-  }, [rows, q]);
+    if (filtroEtiqueta === "__TODAS__") return porTexto;
+    if (filtroEtiqueta === "__SIN_ETIQUETA__") {
+      return porTexto.filter((r) => !r.etiquetaResponsable?.trim());
+    }
+    if (filtroEtiqueta === "__MIS_DERIVADAS__") {
+      const mi = (miEtiquetaUsuario ?? "").trim().toLowerCase();
+      if (!mi) return porTexto;
+      return porTexto.filter(
+        (r) =>
+          (r.etiquetaResponsable?.trim().toLowerCase() ?? "") === mi &&
+          r.atencionHumana === "ACTIVA"
+      );
+    }
+    return porTexto.filter(
+      (r) => (r.etiquetaResponsable?.trim().toLowerCase() ?? "") === filtroEtiqueta.toLowerCase()
+    );
+  }, [rows, q, filtroEtiqueta, miEtiquetaUsuario]);
+
+  const etiquetasDisponibles = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const e = r.etiquetaResponsable?.trim();
+      if (e) set.add(e);
+    }
+    if (miEtiquetaUsuario?.trim()) set.add(miEtiquetaUsuario.trim());
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+  }, [rows, miEtiquetaUsuario]);
 
   const select = useCallback(
     (id: string) => {
@@ -692,6 +731,22 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
               className="w-full rounded-xl border border-[rgba(123,47,247,0.2)] bg-[#1A0A35] py-2.5 pl-9 pr-3 text-sm text-white outline-none placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/50"
             />
           </div>
+          <div className="mt-2">
+            <select
+              value={filtroEtiqueta}
+              onChange={(e) => setFiltroEtiqueta(e.target.value)}
+              className="w-full rounded-xl border border-[rgba(123,47,247,0.2)] bg-[#1A0A35] px-3 py-2 text-xs text-white outline-none focus:border-[#7B2FF7]/50"
+            >
+              <option value="__TODAS__">Todas las etiquetas</option>
+              <option value="__SIN_ETIQUETA__">Sin etiqueta</option>
+              <option value="__MIS_DERIVADAS__">Mis derivadas</option>
+              {etiquetasDisponibles.map((e) => (
+                <option key={e} value={e}>
+                  {e}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
           <p className="px-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-[#6B5A8C]">Conversaciones</p>
@@ -724,6 +779,11 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                     </span>
                     {c.esGrupo ? (
                       <span className="rounded bg-[#2D0A5E]/80 px-1.5 py-0.5 text-[10px] text-[#C4B5FD]">Grupo</span>
+                    ) : null}
+                    {c.etiquetaResponsable?.trim() ? (
+                      <span className="rounded bg-sky-950/70 px-1.5 py-0.5 text-[10px] text-sky-200">
+                        @{c.etiquetaResponsable.trim()}
+                      </span>
                     ) : null}
                     {!c.iaHabilitada ? (
                       <span className="rounded bg-amber-950/60 px-1.5 py-0.5 text-[10px] text-amber-200/90">
@@ -786,6 +846,11 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                   <span className="shrink-0 rounded border border-[rgba(123,47,247,0.25)] px-2 py-0.5 text-[11px] text-[#C4B5FD]">
                     {etiquetaCanal(selected.canal)}
                   </span>
+                  {selected.etiquetaResponsable?.trim() ? (
+                    <span className="shrink-0 rounded border border-sky-500/35 bg-sky-950/50 px-2 py-0.5 text-[11px] text-sky-200">
+                      @{selected.etiquetaResponsable.trim()}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="truncate font-mono text-[11px] text-[#A78BCC]">{selected.numeroCliente}</p>
                 <p className="truncate text-[11px] text-[#A78BCC]">
@@ -812,6 +877,24 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                     onClick={() => void patch(selected.id, { nombreCliente: aliasCliente.trim() || null })}
                   >
                     Guardar apodo
+                  </Button>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-950/20 px-2 py-1">
+                  <input
+                    type="text"
+                    value={etiquetaChat}
+                    onChange={(e) => setEtiquetaChat(e.target.value)}
+                    placeholder="Etiqueta responsable"
+                    className="h-7 w-36 rounded border border-sky-500/25 bg-[#0A0118]/80 px-2 text-[12px] text-white placeholder:text-sky-300/60 outline-none focus:border-sky-400/70"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={saving || etiquetaChat.trim() === (selected.etiquetaResponsable?.trim() || "")}
+                    onClick={() => void patch(selected.id, { etiquetaResponsable: etiquetaChat.trim() || null })}
+                  >
+                    Guardar etiqueta
                   </Button>
                 </div>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[rgba(123,47,247,0.28)] bg-[#14072B] px-2 py-1 text-[12px] text-[#C4B5FD]">
@@ -859,7 +942,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 <p className="text-xs text-rose-200">
                   Derivado a humano:{" "}
                   <strong className="text-rose-100">
-                    {selected.agente?.responsableHumano?.trim() || "Asesor del sector"}
+                    {selected.etiquetaResponsable?.trim() ||
+                      selected.agente?.responsableHumano?.trim() ||
+                      "Asesor del sector"}
                   </strong>
                 </p>
               </div>

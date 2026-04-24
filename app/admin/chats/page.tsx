@@ -46,6 +46,7 @@ export default async function AdminChatsPage() {
     canal: c.canal,
     numeroCliente: c.numeroCliente,
     nombreCliente: c.nombreCliente,
+    etiquetaResponsable: c.etiquetaResponsable,
     ultimoMensaje: c.ultimoMensaje.toISOString(),
     estado: c.estado,
     esGrupo: c.esGrupo,
@@ -66,7 +67,7 @@ export default async function AdminChatsPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ConversacionesWhatsAppInbox initial={initial} />
+        <ConversacionesWhatsAppInbox initial={initial} miEtiquetaUsuario={session?.user?.name ?? null} />
       </div>
     </div>
   );
