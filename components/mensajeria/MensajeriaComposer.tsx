@@ -24,14 +24,16 @@ type Pending = {
 
 type Props = {
   canalId: string | null;
+  yoNombre: string;
   replyTo: Reply | null;
   onClearReply: () => void;
   onAfterSend: () => void;
   onTyping: (activo: boolean) => void;
 };
 
-export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend, onTyping }: Props) {
+export function MensajeriaComposer({ canalId, yoNombre, replyTo, onClearReply, onAfterSend, onTyping }: Props) {
   const [text, setText] = useState("");
+  const [remitenteNombre, setRemitenteNombre] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
@@ -61,6 +63,10 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
       flushTyping();
     }
   }, [text, onTyping, flushTyping]);
+
+  useEffect(() => {
+    if (!remitenteNombre.trim() && yoNombre.trim()) setRemitenteNombre(yoNombre.trim());
+  }, [yoNombre, remitenteNombre]);
 
   useEffect(() => {
     const fn = (e: Event) => {
@@ -120,7 +126,7 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
       const r = await fetch("/api/mensajeria/mensajes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canalId, ...body }),
+        body: JSON.stringify({ canalId, remitenteNombre: remitenteNombre.trim(), ...body }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Error al enviar");
@@ -139,6 +145,10 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
 
   const send = async () => {
     if (!canalId || sending) return;
+    if (!remitenteNombre.trim()) {
+      alert("Indicá quién envía el mensaje.");
+      return;
+    }
     if (pending) {
       await sendPayload({
         tipo: pending.tipo,
@@ -246,6 +256,15 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
           </button>
         </div>
       ) : null}
+
+      <div className="mb-2">
+        <input
+          value={remitenteNombre}
+          onChange={(e) => setRemitenteNombre(e.target.value)}
+          placeholder="Quién envía el mensaje (obligatorio)"
+          className="w-full rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] px-3 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+        />
+      </div>
 
       {pending ? (
         <div className="mb-2 flex flex-wrap items-end gap-3 rounded-2xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] p-3">
@@ -449,7 +468,7 @@ export function MensajeriaComposer({ canalId, replyTo, onClearReply, onAfterSend
           <button
             type="button"
             onClick={() => void send()}
-            disabled={sending || !canalId}
+            disabled={sending || !canalId || !remitenteNombre.trim()}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] text-white shadow-lg shadow-[#7B2FF7]/30 transition hover:brightness-110 disabled:opacity-40"
             aria-label="Enviar"
           >

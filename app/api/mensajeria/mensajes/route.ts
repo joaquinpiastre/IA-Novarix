@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import { ensureUsuarioInterno } from "@/lib/mensajeria-usuario";
 import { puedeVerCanal } from "@/lib/mensajeria-acceso";
+import { parseRemitenteMarker, withRemitenteMarker } from "@/lib/mensajeria-remitente";
 
 const includeMsg = {
   usuario: { select: { id: true, nombre: true, email: true } },
@@ -69,12 +70,13 @@ export async function GET(req: Request) {
     include: includeMsg,
   });
   const list = raw.reverse().map((m) => ({
-    ...m,
-    contenido: m.eliminado ? null : m.contenido,
+    ...(m as Record<string, unknown>),
+    remitenteNombre: parseRemitenteMarker(m.contenido).remitenteNombre ?? m.usuario.nombre,
+    contenido: m.eliminado ? null : parseRemitenteMarker(m.contenido).contenidoLimpio,
     replyA: m.replyA
       ? {
           ...m.replyA,
-          contenido: m.replyA.eliminado ? null : m.replyA.contenido,
+          contenido: m.replyA.eliminado ? null : parseRemitenteMarker(m.replyA.contenido).contenidoLimpio,
         }
       : null,
   }));
@@ -94,6 +96,7 @@ export async function POST(req: Request) {
     archivoNombre?: string | null;
     archivoTamano?: number | null;
     replyAId?: string | null;
+    remitenteNombre?: string | null;
   } | null;
   const canalId = body?.canalId?.trim();
   if (!canalId) return NextResponse.json({ error: "canalId requerido" }, { status: 400 });
@@ -111,6 +114,10 @@ export async function POST(req: Request) {
   const archivoNombre = body?.archivoNombre?.trim() ?? null;
   const archivoTamano = typeof body?.archivoTamano === "number" ? body.archivoTamano : null;
   const replyAId = body?.replyAId?.trim() || null;
+  const remitenteNombre = body?.remitenteNombre?.trim() || "";
+  if (!remitenteNombre) {
+    return NextResponse.json({ error: "Debés indicar quién envía el mensaje" }, { status: 400 });
+  }
 
   if (tipo === "texto" && !contenido) {
     return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
@@ -131,7 +138,7 @@ export async function POST(req: Request) {
       canalId,
       empresaId: ctx.empresaId,
       usuarioId: yo.id,
-      contenido,
+      contenido: withRemitenteMarker(contenido, remitenteNombre),
       tipo,
       archivoUrl,
       archivoNombre,
@@ -147,5 +154,11 @@ export async function POST(req: Request) {
     where: { canalId, usuarioId: yo.id },
   });
 
-  return NextResponse.json({ mensaje: created });
+  return NextResponse.json({
+    mensaje: {
+      ...(created as Record<string, unknown>),
+      remitenteNombre,
+      contenido: parseRemitenteMarker(created.contenido).contenidoLimpio,
+    },
+  });
 }

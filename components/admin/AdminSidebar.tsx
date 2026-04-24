@@ -7,6 +7,7 @@ import {
   Building2,
   Users,
   Bot,
+  MessageSquare,
   BookOpen,
   Plug,
   Package,
@@ -32,6 +33,7 @@ const sections: { title: string; items: Item[] }[] = [
     title: "Operación",
     items: [
       { href: "/admin/agentes", label: "Bots / Agentes", icon: Bot },
+      { href: "/admin/chats", label: "Chats clientes", icon: MessageSquare },
       { href: "/admin/conocimiento", label: "Conocimiento", icon: BookOpen },
       { href: "/admin/integraciones", label: "Integraciones", icon: Plug },
       { href: "/admin/productos", label: "Productos / Stock", icon: Package },

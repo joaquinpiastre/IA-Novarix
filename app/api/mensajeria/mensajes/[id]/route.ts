@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
 import { ensureUsuarioInterno } from "@/lib/mensajeria-usuario";
+import { parseRemitenteMarker, withRemitenteMarker } from "@/lib/mensajeria-remitente";
 
 type Ctx = { params: { id: string } };
 
@@ -23,7 +24,14 @@ export async function PUT(req: Request, { params }: Ctx) {
 
   const updated = await prisma.mensajeInterno.update({
     where: { id },
-    data: { contenido, editadoEn: new Date(), tipo: "texto" },
+    data: {
+      contenido: withRemitenteMarker(
+        contenido,
+        parseRemitenteMarker(msg.contenido).remitenteNombre || yo.nombre
+      ),
+      editadoEn: new Date(),
+      tipo: "texto",
+    },
   });
   return NextResponse.json({ mensaje: updated });
 }

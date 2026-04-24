@@ -338,6 +338,7 @@ async function runProcesarMensajeWhatsApp(input: {
   const tipoMensaje = resolved.tipo;
   const ts = isoNow();
   const solicitaHumano = requiresHumanHandoff(textoDelCliente);
+  const esGrupo = input.esGrupo;
 
   if (tipoMensaje === "text" && !textoDelCliente.trim()) {
     console.error("[WhatsApp][debug] abort: mensaje de texto vacío tras resolver");
@@ -364,6 +365,8 @@ async function runProcesarMensajeWhatsApp(input: {
     const yaEnColaHumana = convPrev?.atencionHumana === "ACTIVA";
     const nuevosMensajes: Msg[] = yaEnColaHumana
       ? [...mensajesPrev, { role: "user", content: textoDelCliente, tipo: tipoMensaje, timestamp: ts }]
+      : esGrupo
+        ? [...mensajesPrev, { role: "user", content: textoDelCliente, tipo: tipoMensaje, timestamp: ts }]
       : [
           ...mensajesPrev,
           { role: "user", content: textoDelCliente, tipo: tipoMensaje, timestamp: ts },
@@ -407,7 +410,7 @@ async function runProcesarMensajeWhatsApp(input: {
       convId = convPrev.id;
     }
 
-    if (!yaEnColaHumana) {
+    if (!esGrupo && !yaEnColaHumana) {
       try {
         await enviarMensajeWhatsApp({
           phoneNumberId: input.phoneNumberId,
@@ -440,7 +443,7 @@ async function runProcesarMensajeWhatsApp(input: {
 
   if (skipOpenAi) {
     const bloquearInicial = convPrev ? conversacionBloqueaIa(convPrev) : false;
-    const sinRespuestaAuto = bloquearInicial || empresa.chatIaPausado;
+    const sinRespuestaAuto = bloquearInicial || empresa.chatIaPausado || esGrupo;
     const userContent = `[FALLBACK] ${resolved.notaInterna ?? "Mensaje no soportado"}`;
     const userTurn: Msg[] = sinRespuestaAuto
       ? [...mensajesPrev, { role: "user", content: userContent, tipo: "fallback", timestamp: ts }]
@@ -579,6 +582,14 @@ async function runProcesarMensajeWhatsApp(input: {
 
   if (empresa.chatIaPausado) {
     console.error("[WhatsApp][debug] abort: chatIaPausado en empresa", { empresaId: empresa.id });
+    return;
+  }
+
+  if (esGrupo) {
+    console.error("[WhatsApp][debug] IA deshabilitada para grupos", {
+      convId,
+      numeroCliente: input.numeroCliente,
+    });
     return;
   }
 

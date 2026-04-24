@@ -42,6 +42,7 @@ type CanalRow = {
 type Msg = {
   id: string;
   usuarioId: string;
+  remitenteNombre?: string | null;
   contenido: string | null;
   tipo: string;
   archivoUrl: string | null;
@@ -80,6 +81,9 @@ export function MensajeriaApp() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [nuevoAbajo, setNuevoAbajo] = useState(false);
   const [cargaError, setCargaError] = useState<string | null>(null);
+  const [showNuevoGrupo, setShowNuevoGrupo] = useState(false);
+  const [nuevoGrupoNombre, setNuevoGrupoNombre] = useState("");
+  const [creandoGrupo, setCreandoGrupo] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickBottom = useRef(true);
@@ -261,6 +265,34 @@ export function MensajeriaApp() {
     await fetchCanales();
   };
 
+  const crearGrupo = async () => {
+    const nombre = nuevoGrupoNombre.trim();
+    if (!nombre || creandoGrupo) return;
+    setCreandoGrupo(true);
+    try {
+      const r = await fetch("/api/mensajeria/canales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "grupo", nombreGrupo: nombre }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(j.error || "No se pudo crear el grupo");
+        return;
+      }
+      const id = j.canal?.id as string | undefined;
+      setNuevoGrupoNombre("");
+      setShowNuevoGrupo(false);
+      await fetchCanales();
+      if (id) {
+        setCanalId(id);
+        setMobileChat(true);
+      }
+    } finally {
+      setCreandoGrupo(false);
+    }
+  };
+
   const equipo = useMemo(() => canales.filter((c) => c.tipo !== "privado"), [canales]);
   const dms = useMemo(() => canales.filter((c) => c.tipo === "privado"), [canales]);
   const idsConDm = useMemo(
@@ -324,6 +356,37 @@ export function MensajeriaApp() {
           <p className="text-[11px] text-[#A78BCC]">Equipo interno</p>
         </div>
         <div className="p-3">
+          <button
+            type="button"
+            onClick={() => setShowNuevoGrupo((v) => !v)}
+            className="mb-2 w-full rounded-xl border border-[#7B2FF7]/35 bg-[#2D0A5E]/60 px-3 py-2 text-sm font-semibold text-white hover:bg-[#3A1280]"
+          >
+            + Crear grupo
+          </button>
+          {showNuevoGrupo ? (
+            <div className="mb-3 rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] p-2.5">
+              <input
+                value={nuevoGrupoNombre}
+                onChange={(e) => setNuevoGrupoNombre(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void crearGrupo();
+                  }
+                }}
+                placeholder="Nombre del grupo"
+                className="mb-2 w-full rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+              />
+              <button
+                type="button"
+                onClick={() => void crearGrupo()}
+                disabled={!nuevoGrupoNombre.trim() || creandoGrupo}
+                className="w-full rounded-lg bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {creandoGrupo ? "Creando..." : "Guardar grupo"}
+              </button>
+            </div>
+          ) : null}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B5A8C]" />
             <input
@@ -606,7 +669,7 @@ export function MensajeriaApp() {
                           {m.eliminado ? <p className="text-sm italic opacity-70">Mensaje eliminado</p> : null}
                           <div className={`mt-1 flex items-center gap-1 text-[11px] ${mine ? "text-white/80" : "text-[#A78BCC]"}`}>
                             <span>
-                              {m.usuario.nombre}
+                              {m.remitenteNombre?.trim() || m.usuario.nombre}
                               {mine ? " · Vos" : ""} · {formatRelativo(m.creadoEn)}
                               {m.editadoEn ? " · editado" : ""}
                             </span>
@@ -648,6 +711,7 @@ export function MensajeriaApp() {
 
             <MensajeriaComposer
               canalId={canalId}
+              yoNombre={yoNombre}
               replyTo={replyTo}
               onClearReply={() => setReplyTo(null)}
               onAfterSend={() => void fetchMensajes()}

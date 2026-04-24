@@ -4,6 +4,7 @@ import { requireEmpresaContext } from "@/lib/api-auth";
 import { ensureCanalesPorDefecto } from "@/lib/mensajeria-canales-default";
 import { ensureUsuarioInterno } from "@/lib/mensajeria-usuario";
 import { puedeVerCanal } from "@/lib/mensajeria-acceso";
+import { parseRemitenteMarker } from "@/lib/mensajeria-remitente";
 
 async function ultimoMensajePorCanal(empresaId: string, canalIds: string[]) {
   if (!canalIds.length) return new Map<string, { preview: string; creadoEn: Date }>();
@@ -27,6 +28,8 @@ async function ultimoMensajePorCanal(empresaId: string, canalIds: string[]) {
   return new Map(
     Array.from(map.entries()).map(([id, m]) => {
       let preview = m.contenido?.slice(0, 80) ?? "";
+      const parsed = parseRemitenteMarker(preview);
+      preview = parsed.contenidoLimpio?.slice(0, 80) ?? "";
       if (m.tipo === "imagen") preview = "🖼️ Imagen";
       else if (m.tipo === "audio") preview = "🎤 Audio";
       else if (m.tipo === "video") preview = "🎬 Video";
@@ -126,7 +129,41 @@ export async function POST(req: Request) {
   const ctx = await requireEmpresaContext();
   if ("error" in ctx) return ctx.error;
   const yo = await ensureUsuarioInterno(ctx.empresaId, ctx.session);
-  const body = (await req.json().catch(() => null)) as { otroUsuarioId?: string } | null;
+  const body = (await req.json().catch(() => null)) as
+    | {
+        accion?: "dm" | "grupo";
+        otroUsuarioId?: string;
+        nombreGrupo?: string;
+        miembros?: string[];
+      }
+    | null;
+  const accion = body?.accion?.trim() || "dm";
+
+  if (accion === "grupo") {
+    const nombre = body?.nombreGrupo?.trim() || "";
+    if (!nombre) return NextResponse.json({ error: "nombreGrupo requerido" }, { status: 400 });
+    const requested = Array.isArray(body?.miembros)
+      ? body.miembros.map((x) => String(x).trim()).filter(Boolean)
+      : [];
+    const uniq = Array.from(new Set([yo.id, ...requested]));
+    const validMembers = await prisma.usuario.findMany({
+      where: { empresaId: ctx.empresaId, activo: true, id: { in: uniq } },
+      select: { id: true },
+    });
+    const miembros = validMembers.map((u) => u.id);
+    const canal = await prisma.canalInterno.create({
+      data: {
+        empresaId: ctx.empresaId,
+        nombre,
+        tipo: "grupo",
+        icono: "👥",
+        descripcion: null,
+        miembros,
+      },
+    });
+    return NextResponse.json({ canal });
+  }
+
   const otroId = body?.otroUsuarioId?.trim();
   if (!otroId) return NextResponse.json({ error: "otroUsuarioId requerido" }, { status: 400 });
   if (otroId === yo.id) return NextResponse.json({ error: "No podés chatear con vos mismo" }, { status: 400 });
