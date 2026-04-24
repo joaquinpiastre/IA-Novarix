@@ -164,6 +164,11 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
 
   const [rows, setRows] = useState<InboxRow[]>(initial);
   const [q, setQ] = useState("");
+  const [nuevoChatOpen, setNuevoChatOpen] = useState(false);
+  const [nuevoNumero, setNuevoNumero] = useState("");
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoMensaje, setNuevoMensaje] = useState("");
+  const [creandoChat, setCreandoChat] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(paramC || null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -478,6 +483,53 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
     return true;
   }
 
+  async function crearNuevoChat() {
+    if (creandoChat) return;
+    const numero = nuevoNumero.trim();
+    const texto = nuevoMensaje.trim();
+    if (!numero || !texto) {
+      setMsg("Completá número y primer mensaje.");
+      return;
+    }
+    setCreandoChat(true);
+    setMsg("");
+    try {
+      const r = await fetch("/api/conversaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          canal: "WHATSAPP",
+          numeroCliente: numero,
+          nombreCliente: nuevoNombre.trim() || null,
+          texto,
+        }),
+      });
+      const j = (await r.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+      if (!r.ok) {
+        setMsg(j.error ?? "No se pudo iniciar el chat.");
+        return;
+      }
+      const mapped = conversacionApiToRow(j);
+      if (mapped) {
+        setRows((prev) => {
+          const i = prev.findIndex((row) => row.id === mapped.id);
+          if (i === -1) return [mapped, ...prev];
+          const next = [...prev];
+          next[i] = mapped;
+          return next.sort((a, b) => (Date.parse(b.ultimoMensaje) || 0) - (Date.parse(a.ultimoMensaje) || 0));
+        });
+        select(mapped.id);
+      }
+      setNuevoNumero("");
+      setNuevoNombre("");
+      setNuevoMensaje("");
+      setNuevoChatOpen(false);
+      setMsg("Chat iniciado y mensaje enviado.");
+    } finally {
+      setCreandoChat(false);
+    }
+  }
+
   async function enviarAdjuntoAlCliente() {
     if (!selected || !pendingAdjunto || sendingCliente) return;
     setSendingCliente(true);
@@ -592,6 +644,44 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
           <p className="text-[11px] text-[#A78BCC]">Clientes · WhatsApp · Meta</p>
         </div>
         <div className="p-3">
+          <button
+            type="button"
+            onClick={() => setNuevoChatOpen((v) => !v)}
+            className="mb-2 w-full rounded-xl border border-[#7B2FF7]/35 bg-[#2D0A5E]/60 px-3 py-2 text-sm font-semibold text-white hover:bg-[#3A1280]"
+          >
+            + Nuevo chat
+          </button>
+          {nuevoChatOpen ? (
+            <div className="mb-3 rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] p-2.5">
+              <input
+                value={nuevoNumero}
+                onChange={(e) => setNuevoNumero(e.target.value)}
+                placeholder="Número WhatsApp (ej: 54911...)"
+                className="mb-2 w-full rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+              />
+              <input
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+                placeholder="Nombre / apodo (opcional)"
+                className="mb-2 w-full rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+              />
+              <textarea
+                rows={2}
+                value={nuevoMensaje}
+                onChange={(e) => setNuevoMensaje(e.target.value)}
+                placeholder="Primer mensaje"
+                className="mb-2 w-full resize-y rounded-lg border border-[rgba(123,47,247,0.25)] bg-[#0A0118]/80 px-2.5 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+              />
+              <button
+                type="button"
+                onClick={() => void crearNuevoChat()}
+                disabled={creandoChat || !nuevoNumero.trim() || !nuevoMensaje.trim()}
+                className="w-full rounded-lg bg-gradient-to-br from-[#7B2FF7] to-[#C026D3] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {creandoChat ? "Enviando..." : "Crear y enviar"}
+              </button>
+            </div>
+          ) : null}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B5A8C]" />
             <input

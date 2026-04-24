@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
+import type { CanalConversacion, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireEmpresaContext } from "@/lib/api-auth";
+import { obtenerOCrearContacto } from "@/lib/crm";
+import { enviarMensajeWhatsApp } from "@/lib/whatsapp";
+import { textoErrorGraphApi } from "@/lib/meta-graph";
 
 export async function GET(req: Request) {
   const ctx = await requireEmpresaContext();
@@ -38,4 +41,105 @@ export async function GET(req: Request) {
     take: todas ? 500 : 200,
   });
   return NextResponse.json(list);
+}
+
+export async function POST(req: Request) {
+  const ctx = await requireEmpresaContext();
+  if ("error" in ctx) return ctx.error;
+
+  const body = (await req.json().catch(() => null)) as
+    | {
+        canal?: CanalConversacion;
+        numeroCliente?: string;
+        nombreCliente?: string | null;
+        texto?: string;
+      }
+    | null;
+  const canal = body?.canal ?? "WHATSAPP";
+  const numeroRaw = body?.numeroCliente?.trim() ?? "";
+  const numeroCliente = numeroRaw.replace(/\s+/g, "");
+  const texto = body?.texto?.trim() ?? "";
+  const nombreCliente = body?.nombreCliente?.trim() || null;
+
+  if (!numeroCliente) {
+    return NextResponse.json({ error: "numeroCliente requerido" }, { status: 400 });
+  }
+  if (!texto) {
+    return NextResponse.json({ error: "Mensaje vacío" }, { status: 400 });
+  }
+  if (canal !== "WHATSAPP") {
+    return NextResponse.json({ error: "Solo se permite iniciar chats de WhatsApp desde esta vista." }, { status: 400 });
+  }
+
+  const empresa = await prisma.empresa.findFirst({ where: { id: ctx.empresaId, activo: true } });
+  if (!empresa) return NextResponse.json({ error: "Empresa no encontrada" }, { status: 403 });
+  if (!empresa.whatsappPhoneId?.trim() || !empresa.whatsappToken?.trim()) {
+    return NextResponse.json(
+      { error: "WhatsApp no configurado: completá Phone ID y token en Configuración." },
+      { status: 400 }
+    );
+  }
+
+  const contacto = await obtenerOCrearContacto(ctx.empresaId, numeroCliente, nombreCliente, "WHATSAPP");
+  const agente =
+    (await prisma.agente.findFirst({
+      where: { empresaId: ctx.empresaId, activo: true, esDefault: true },
+      select: { id: true },
+    })) ??
+    (await prisma.agente.findFirst({
+      where: { empresaId: ctx.empresaId, activo: true },
+      select: { id: true },
+    }));
+
+  let conv = await prisma.conversacion.findFirst({
+    where: { empresaId: ctx.empresaId, numeroCliente, canal },
+    orderBy: { ultimoMensaje: "desc" },
+  });
+  if (!conv) {
+    conv = await prisma.conversacion.create({
+      data: {
+        empresaId: ctx.empresaId,
+        agenteId: agente?.id ?? null,
+        numeroCliente,
+        nombreCliente,
+        canal,
+        esGrupo: false,
+        contactoId: contacto.id,
+        mensajes: [],
+      },
+    });
+  }
+
+  const res = await enviarMensajeWhatsApp({
+    phoneNumberId: empresa.whatsappPhoneId.trim(),
+    accessToken: empresa.whatsappToken.trim(),
+    to: numeroCliente,
+    text: texto,
+  });
+  const errBody = await res.text();
+  if (!res.ok) {
+    return NextResponse.json(
+      { error: textoErrorGraphApi(errBody || `Error al enviar (${res.status})`) },
+      { status: res.status >= 400 && res.status < 600 ? res.status : 502 }
+    );
+  }
+
+  const prev = (Array.isArray(conv.mensajes) ? conv.mensajes : []) as unknown[];
+  const staffMsg = {
+    role: "staff",
+    content: texto,
+    tipo: "text",
+    timestamp: new Date().toISOString(),
+  };
+  const updated = await prisma.conversacion.update({
+    where: { id: conv.id },
+    data: {
+      nombreCliente,
+      contactoId: contacto.id,
+      mensajes: [...prev, staffMsg] as unknown as Prisma.InputJsonValue,
+      ultimoMensaje: new Date(),
+    },
+    include: { agente: { select: { nombre: true, responsableHumano: true } } },
+  });
+  return NextResponse.json(updated);
 }
