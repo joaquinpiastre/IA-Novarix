@@ -173,3 +173,52 @@ export async function enviarMensajeInstagram(
     }),
   });
 }
+
+/** Tipos de adjunto aceptados por Messenger / Instagram (Send API). */
+export type MetaAdjuntoTipo = "image" | "video" | "audio" | "file";
+
+export async function enviarAdjuntoMessenger(
+  pageAccessToken: string,
+  recipientPsid: string,
+  attachmentType: MetaAdjuntoTipo,
+  mediaUrl: string
+): Promise<Response> {
+  const url = `https://graph.facebook.com/${API_VERSION}/me/messages?access_token=${encodeURIComponent(pageAccessToken)}`;
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipient: { id: recipientPsid },
+      messaging_type: "RESPONSE",
+      message: {
+        attachment: {
+          type: attachmentType,
+          payload: { url: mediaUrl, is_reusable: true },
+        },
+      },
+    }),
+  });
+}
+
+export async function enviarAdjuntoInstagram(
+  pageAccessToken: string,
+  instagramBusinessAccountId: string,
+  recipientIgsid: string,
+  attachmentType: MetaAdjuntoTipo,
+  mediaUrl: string
+): Promise<Response> {
+  const url = `https://graph.facebook.com/${API_VERSION}/${instagramBusinessAccountId}/messages?access_token=${encodeURIComponent(pageAccessToken)}`;
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipient: { id: recipientIgsid },
+      message: {
+        attachment: {
+          type: attachmentType,
+          payload: { url: mediaUrl, is_reusable: true },
+        },
+      },
+    }),
+  });
+}

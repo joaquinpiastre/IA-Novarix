@@ -17,10 +17,7 @@ export async function enviarMensajeWhatsApp(params: {
     },
     body: JSON.stringify({
       messaging_product: "whatsapp",
-      // Grupos: id tipo 120363…@g.us → Meta suele aceptar solo dígitos del id de grupo
-      to: params.to.includes("@g.us")
-        ? params.to.replace(/^(\d+).*/, "$1")
-        : params.to.replace(/\D/g, ""),
+      to: normalizarDestinoWhatsApp(params.to),
       type: "text",
       text: { body: params.text },
     }),
@@ -88,4 +85,85 @@ export async function descargarMediaWhatsApp(
   const buffer = Buffer.from(arrayBuffer);
 
   return { buffer, mimeType, extension };
+}
+
+function normalizarDestinoWhatsApp(to: string): string {
+  return to.includes("@g.us") ? to.replace(/^(\d+).*/, "$1") : to.replace(/\D/g, "");
+}
+
+/**
+ * Sube un archivo a Meta y devuelve el media id (WhatsApp Cloud API).
+ */
+export async function subirMediaWhatsApp(params: {
+  phoneNumberId: string;
+  accessToken: string;
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}): Promise<string> {
+  const url = `https://graph.facebook.com/${API_VERSION}/${params.phoneNumberId}/media`;
+  const form = new FormData();
+  form.set("messaging_product", "whatsapp");
+  const blob = new Blob([Uint8Array.from(params.buffer)], { type: params.mimeType || "application/octet-stream" });
+  form.set("file", blob, params.filename);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.accessToken}` },
+    body: form,
+  });
+  const raw = await res.text();
+  let j: { id?: string; error?: { message?: string } };
+  try {
+    j = JSON.parse(raw) as typeof j;
+  } catch {
+    throw new Error(raw.slice(0, 500));
+  }
+  if (!res.ok || !j.id) {
+    throw new Error(j.error?.message || raw.slice(0, 500));
+  }
+  return j.id;
+}
+
+export async function enviarMensajeWhatsAppMedia(params: {
+  phoneNumberId: string;
+  accessToken: string;
+  to: string;
+  kind: "image" | "audio" | "video" | "document";
+  mediaId: string;
+  caption?: string;
+  documentFilename?: string;
+}): Promise<Response> {
+  const url = `https://graph.facebook.com/${API_VERSION}/${params.phoneNumberId}/messages`;
+  const to = normalizarDestinoWhatsApp(params.to);
+  const caption = params.caption?.trim();
+
+  const payload: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    to,
+    type: params.kind,
+  };
+
+  if (params.kind === "image") {
+    payload.image = caption ? { id: params.mediaId, caption } : { id: params.mediaId };
+  } else if (params.kind === "video") {
+    payload.video = caption ? { id: params.mediaId, caption } : { id: params.mediaId };
+  } else if (params.kind === "audio") {
+    payload.audio = { id: params.mediaId };
+  } else {
+    payload.document = {
+      id: params.mediaId,
+      filename: params.documentFilename || "adjunto",
+      ...(caption ? { caption } : {}),
+    };
+  }
+
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 }

@@ -1,11 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AtencionHumanaEstado, CanalConversacion } from "@prisma/client";
-import { ArrowLeft, Mic, Paperclip, Search, Send, Smile } from "lucide-react";
+import { Theme } from "emoji-picker-react";
+import {
+  ArrowLeft,
+  FileText,
+  Image as ImageIcon,
+  Mic,
+  Paperclip,
+  Search,
+  Send,
+  Smile,
+  Trash2,
+  Video,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { etiquetaDia, formatRelativo, hashHue, renderRichText } from "@/components/mensajeria/mensajeria-format";
+
+const EmojiPicker = dynamic(() => import("emoji-picker-react").then((m) => m.default), { ssr: false });
 
 type ThreadMsg = {
   role: string;
@@ -13,6 +29,8 @@ type ThreadMsg = {
   timestamp?: string;
   tipo?: string;
   editedAt?: string;
+  mediaUrl?: string;
+  archivoNombre?: string;
 };
 
 export type InboxRow = {
@@ -88,15 +106,19 @@ function mensajesDelHilo(raw: unknown): ThreadMsg[] {
       const timestamp = typeof o.timestamp === "string" ? o.timestamp : undefined;
       const tipo = typeof o.tipo === "string" ? o.tipo : undefined;
       const editedAt = typeof o.editedAt === "string" ? o.editedAt : undefined;
-      return { role, content, timestamp, tipo, editedAt };
+      const mediaUrl = typeof o.mediaUrl === "string" ? o.mediaUrl : undefined;
+      const archivoNombre = typeof o.archivoNombre === "string" ? o.archivoNombre : undefined;
+      return { role, content, timestamp, tipo, editedAt, mediaUrl, archivoNombre };
     })
-    .filter((m) => m.role && (m.content.trim() || m.tipo));
+    .filter((m) => m.role && (m.content.trim() || m.mediaUrl?.trim() || (m.tipo && m.tipo !== "text")));
 }
 
 function etiquetaTipo(t?: string): string | null {
   if (!t || t === "text") return null;
   if (t === "audio") return "Audio";
   if (t === "image") return "Imagen";
+  if (t === "video") return "Video";
+  if (t === "document") return "Documento";
   if (t === "fallback") return "Sistema";
   return t;
 }
@@ -152,11 +174,52 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   const [editingText, setEditingText] = useState("");
   const [updatingMessage, setUpdatingMessage] = useState(false);
 
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  type PendingAdjunto = {
+    file: File;
+    previewUrl?: string;
+    caption: string;
+  };
+  const [pendingAdjunto, setPendingAdjunto] = useState<PendingAdjunto | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordMs, setRecordMs] = useState(0);
+  const [recordCancel, setRecordCancel] = useState(false);
+  const [audioPreview, setAudioPreview] = useState<{ url: string; blob: Blob } | null>(null);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const taClienteRef = useRef<HTMLTextAreaElement>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+  const recordCancelRef = useRef(false);
+  const composerWrapRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setDraftCliente("");
     setEditingIndex(null);
     setEditingText("");
+    setPendingAdjunto(null);
+    setAudioPreview(null);
+    setAttachOpen(false);
+    setEmojiOpen(false);
+    setRecording(false);
+    setRecordMs(0);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!attachOpen && !emojiOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = composerWrapRef.current;
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        setAttachOpen(false);
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [attachOpen, emojiOpen]);
 
   useEffect(() => {
     if (paramC && rows.some((r) => r.id === paramC)) {
@@ -282,7 +345,9 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
   }
 
   async function enviarAlCliente() {
-    if (!selected || !draftCliente.trim() || sendingCliente) return;
+    if (!selected || !draftCliente.trim() || sendingCliente || pendingAdjunto || audioPreview || recording) {
+      return;
+    }
     setSendingCliente(true);
     setMsg("");
     try {
@@ -380,6 +445,127 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
     } finally {
       setUpdatingMessage(false);
     }
+  }
+
+  function limpiarAdjuntoPreview(p: PendingAdjunto | null) {
+    if (p?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(p.previewUrl);
+  }
+
+  async function postEnviarMediaApi(fd: FormData): Promise<boolean> {
+    if (!selected) return false;
+    const r = await fetch(`/api/conversaciones/${selected.id}/enviar-media`, { method: "POST", body: fd });
+    const j = (await r.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+    if (!r.ok) {
+      setMsg(j.error ?? "No se pudo enviar el archivo");
+      return false;
+    }
+    const mapped = conversacionApiToRow(j);
+    if (mapped) {
+      setRows((prev) => {
+        const i = prev.findIndex((row) => row.id === mapped.id);
+        if (i === -1) return [mapped, ...prev];
+        const next = [...prev];
+        next[i] = mapped;
+        return next.sort((a, b) => (Date.parse(b.ultimoMensaje) || 0) - (Date.parse(a.ultimoMensaje) || 0));
+      });
+    }
+    return true;
+  }
+
+  async function enviarAdjuntoAlCliente() {
+    if (!selected || !pendingAdjunto || sendingCliente) return;
+    setSendingCliente(true);
+    setMsg("");
+    try {
+      const fd = new FormData();
+      fd.set("file", pendingAdjunto.file);
+      if (pendingAdjunto.caption.trim()) fd.set("caption", pendingAdjunto.caption.trim());
+      const ok = await postEnviarMediaApi(fd);
+      if (ok) {
+        limpiarAdjuntoPreview(pendingAdjunto);
+        setPendingAdjunto(null);
+        setMsg("Adjunto enviado.");
+      }
+    } finally {
+      setSendingCliente(false);
+    }
+  }
+
+  async function confirmarAudioCliente() {
+    if (!selected || !audioPreview || sendingCliente) return;
+    const file = new File([audioPreview.blob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
+    URL.revokeObjectURL(audioPreview.url);
+    setAudioPreview(null);
+    setSendingCliente(true);
+    setMsg("");
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const ok = await postEnviarMediaApi(fd);
+      if (ok) setMsg("Audio enviado.");
+    } finally {
+      setSendingCliente(false);
+    }
+  }
+
+  function stopMic() {
+    if (recRef.current && recRef.current.state !== "inactive") {
+      try {
+        recRef.current.stop();
+      } catch {
+        /* noop */
+      }
+    }
+    recRef.current = null;
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setRecording(false);
+    setRecordMs(0);
+    setRecordCancel(false);
+    recordCancelRef.current = false;
+  }
+
+  async function startMic() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (ev) => {
+        if (ev.data.size) chunksRef.current.push(ev.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (recordCancelRef.current) {
+          recordCancelRef.current = false;
+          setRecordCancel(false);
+          chunksRef.current = [];
+          return;
+        }
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        chunksRef.current = [];
+        const url = URL.createObjectURL(blob);
+        setAudioPreview({ url, blob });
+      };
+      rec.start();
+      recRef.current = rec;
+      setRecording(true);
+      setRecordMs(0);
+      timerRef.current = setInterval(() => setRecordMs((n) => n + 1), 1000);
+    } catch {
+      setMsg("No se pudo acceder al micrófono.");
+    }
+  }
+
+  async function onPickAdjunto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setAttachOpen(false);
+    let previewUrl: string | undefined;
+    if (f.type.startsWith("image/") || f.type.startsWith("video/")) {
+      previewUrl = URL.createObjectURL(f);
+    }
+    setPendingAdjunto({ file: f, previewUrl, caption: "" });
   }
 
   return (
@@ -656,6 +842,32 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                                 {extra}
                               </p>
                             ) : null}
+                            {!isEditing && m.mediaUrl?.trim() ? (
+                              <div className="mb-2">
+                                {m.tipo === "image" ? (
+                                  // eslint-disable-next-line @next/next/no-img-element -- URL pública del adjunto
+                                  <img
+                                    src={m.mediaUrl}
+                                    alt=""
+                                    className="max-h-60 w-full rounded-lg object-cover"
+                                  />
+                                ) : null}
+                                {m.tipo === "video" ? (
+                                  <video src={m.mediaUrl} controls className="max-h-60 w-full rounded-lg" />
+                                ) : null}
+                                {m.tipo === "audio" ? <audio src={m.mediaUrl} controls className="w-full" /> : null}
+                                {m.tipo === "document" ? (
+                                  <a
+                                    href={m.mediaUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex break-all text-sm text-white/95 underline"
+                                  >
+                                    📎 {m.archivoNombre?.trim() || "Descargar archivo"}
+                                  </a>
+                                ) : null}
+                              </div>
+                            ) : null}
                             {isEditing ? (
                               <div className="space-y-2 min-h-[140px]">
                                 <textarea
@@ -690,7 +902,7 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                               </div>
                             ) : (
                               <div className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
-                                {m.content.trim() ? renderRichText(m.content.trim()) : "—"}
+                                {m.content.trim() ? renderRichText(m.content.trim()) : m.mediaUrl?.trim() ? "" : "—"}
                               </div>
                             )}
                             <div
@@ -741,39 +953,219 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                 <p className="whitespace-pre-wrap break-words text-sm text-[#A855F7]">{msg}</p>
               ) : null}
 
-              <div className="rounded-2xl border border-[rgba(123,47,247,0.2)] bg-[#100424] px-2.5 py-2">
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => void onPickAdjunto(e)}
+              />
+
+              {pendingAdjunto ? (
+                <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] p-3">
+                  {pendingAdjunto.file.type.startsWith("image/") && pendingAdjunto.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pendingAdjunto.previewUrl}
+                      alt=""
+                      className="h-24 w-24 rounded-lg object-cover"
+                    />
+                  ) : pendingAdjunto.file.type.startsWith("video/") && pendingAdjunto.previewUrl ? (
+                    <video src={pendingAdjunto.previewUrl} className="h-24 w-40 rounded-lg object-cover" muted playsInline />
+                  ) : (
+                    <div className="flex items-center gap-2 text-[#A78BCC]">
+                      <FileText className="h-8 w-8 text-[#7B2FF7]" />
+                      <div>
+                        <p className="text-sm font-medium text-white">{pendingAdjunto.file.name}</p>
+                        <p className="text-xs">{(pendingAdjunto.file.size / 1024).toFixed(0)} KB</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="min-w-[160px] flex-1">
+                    <input
+                      value={pendingAdjunto.caption}
+                      onChange={(e) =>
+                        setPendingAdjunto((p) => (p ? { ...p, caption: e.target.value } : null))
+                      }
+                      placeholder="Leyenda (opcional)…"
+                      className="w-full rounded-xl border border-[rgba(123,47,247,0.2)] bg-[#0A0118]/80 px-3 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      limpiarAdjuntoPreview(pendingAdjunto);
+                      setPendingAdjunto(null);
+                    }}
+                    className="rounded-full p-2 text-[#A78BCC] hover:bg-white/10 hover:text-white"
+                    aria-label="Quitar adjunto"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <Button type="button" size="sm" disabled={sendingCliente} onClick={() => void enviarAdjuntoAlCliente()}>
+                    {sendingCliente ? "…" : "Enviar adjunto"}
+                  </Button>
+                </div>
+              ) : null}
+
+              {audioPreview ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] p-3">
+                  <audio src={audioPreview.url} controls className="h-9 flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      URL.revokeObjectURL(audioPreview.url);
+                      setAudioPreview(null);
+                    }}
+                    className="rounded-full p-2 text-[#A78BCC] hover:bg-white/10"
+                    aria-label="Descartar audio"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <Button type="button" size="sm" disabled={sendingCliente} onClick={() => void confirmarAudioCliente()}>
+                    {sendingCliente ? "…" : "Enviar audio"}
+                  </Button>
+                </div>
+              ) : null}
+
+              {recording ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-red-500/40 bg-red-950/30 px-3 py-2">
+                  <div className="flex flex-1 gap-0.5">
+                    {Array.from({ length: 24 }).map((_, idx) => (
+                      <span
+                        key={idx}
+                        className="w-1 animate-pulse rounded-full bg-[#7B2FF7]"
+                        style={{
+                          height: `${8 + ((idx * 17 + recordMs * 3) % 24)}px`,
+                          animationDelay: `${idx * 40}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono text-sm text-white">{fmtDur(recordMs)}</span>
+                  <span className="text-xs text-red-300">{recordCancel ? "Soltá para cancelar" : "Deslizá para cancelar"}</span>
+                </div>
+              ) : null}
+
+              <div ref={composerWrapRef} className="rounded-2xl border border-[rgba(123,47,247,0.2)] bg-[#100424] px-2.5 py-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-[#A78BCC]">
+                  <div className="relative flex items-center gap-1 text-[#A78BCC]">
                     <button
                       type="button"
-                      disabled
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
-                      title="Adjuntar (próximamente)"
+                      disabled={saving || sendingCliente || !!pendingAdjunto || !!audioPreview || recording}
+                      onClick={() => setAttachOpen((v) => !v)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 hover:text-white disabled:opacity-40"
+                      title="Adjuntar"
+                      aria-label="Adjuntar archivo"
                     >
                       <Paperclip className="h-4 w-4" />
                     </button>
+                    {attachOpen ? (
+                      <div className="absolute bottom-10 left-0 z-20 w-44 overflow-hidden rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] py-1 shadow-xl">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white hover:bg-[#2D0A5E]/60"
+                          onClick={() => {
+                            setAttachOpen(false);
+                            if (fileRef.current) {
+                              fileRef.current.accept = "image/*";
+                              fileRef.current.click();
+                            }
+                          }}
+                        >
+                          <ImageIcon className="h-4 w-4" /> Imagen
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white hover:bg-[#2D0A5E]/60"
+                          onClick={() => {
+                            setAttachOpen(false);
+                            if (fileRef.current) {
+                              fileRef.current.accept =
+                                ".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                              fileRef.current.click();
+                            }
+                          }}
+                        >
+                          <FileText className="h-4 w-4" /> Documento
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white hover:bg-[#2D0A5E]/60"
+                          onClick={() => {
+                            setAttachOpen(false);
+                            if (fileRef.current) {
+                              fileRef.current.accept = "video/*";
+                              fileRef.current.click();
+                            }
+                          }}
+                        >
+                          <Video className="h-4 w-4" /> Video
+                        </button>
+                      </div>
+                    ) : null}
                     <button
                       type="button"
-                      disabled
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
-                      title="Audio (próximamente)"
+                      disabled={saving || sendingCliente || !!pendingAdjunto || !!audioPreview || recording}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 hover:text-white disabled:opacity-40"
+                      title="Grabar audio"
+                      aria-label="Grabar audio"
+                      onPointerDown={(e) => {
+                        pressRef.current = { x: e.clientX, y: e.clientY };
+                        void startMic();
+                      }}
+                      onPointerMove={(e) => {
+                        if (!recording || !pressRef.current) return;
+                        const dy = pressRef.current.y - e.clientY;
+                        const dx = Math.abs(pressRef.current.x - e.clientX);
+                        const cancel = dy > 48 || dx > 80;
+                        recordCancelRef.current = cancel;
+                        setRecordCancel(cancel);
+                      }}
+                      onPointerUp={() => {
+                        if (!recording) return;
+                        stopMic();
+                      }}
+                      onPointerLeave={() => {
+                        if (recording) stopMic();
+                      }}
                     >
                       <Mic className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full opacity-75"
-                      title="Emojis (próximamente)"
-                    >
-                      <Smile className="h-4 w-4" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        disabled={saving || sendingCliente || !!pendingAdjunto || !!audioPreview || recording}
+                        onClick={() => setEmojiOpen((v) => !v)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        title="Emojis"
+                        aria-label="Emojis"
+                      >
+                        <Smile className="h-4 w-4" />
+                      </button>
+                      {emojiOpen ? (
+                        <div className="absolute bottom-10 left-0 z-30 shadow-2xl">
+                          <EmojiPicker
+                            theme={Theme.DARK}
+                            onEmojiClick={(ev) => {
+                              setDraftCliente((t) => t + ev.emoji);
+                              setEmojiOpen(false);
+                              taClienteRef.current?.focus();
+                            }}
+                            width={300}
+                            height={380}
+                            searchPlaceholder="Buscar emoji…"
+                            previewConfig={{ showPreview: false }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                   <textarea
+                    ref={taClienteRef}
                     rows={1}
                     value={draftCliente}
                     onChange={(e) => setDraftCliente(e.target.value)}
-                    disabled={saving || sendingCliente}
+                    disabled={saving || sendingCliente || !!pendingAdjunto || !!audioPreview || recording}
                     placeholder="Escribí un mensaje..."
                     className="max-h-28 min-h-[38px] flex-1 resize-none rounded-full border border-[rgba(123,47,247,0.25)] bg-[#1A0A35]/80 px-4 py-2.5 text-sm text-white outline-none ring-1 ring-transparent placeholder:text-[#6B5A8C] focus:border-[#7B2FF7]/60 focus:ring-[#7B2FF7]/20 disabled:opacity-50"
                     onKeyDown={(e) => {
@@ -786,7 +1178,14 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
                   <Button
                     type="button"
                     size="sm"
-                    disabled={saving || sendingCliente || !draftCliente.trim()}
+                    disabled={
+                      saving ||
+                      sendingCliente ||
+                      !!pendingAdjunto ||
+                      !!audioPreview ||
+                      recording ||
+                      !draftCliente.trim()
+                    }
                     onClick={() => void enviarAlCliente()}
                     className="h-9 w-9 shrink-0 rounded-full p-0"
                     aria-label="Enviar mensaje"
@@ -801,4 +1200,10 @@ export function ConversacionesWhatsAppInbox({ initial }: { initial: InboxRow[] }
       </section>
     </div>
   );
+}
+
+function fmtDur(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
