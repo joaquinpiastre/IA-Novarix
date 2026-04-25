@@ -65,10 +65,6 @@ export function MensajeriaComposer({ canalId, yoNombre, replyTo, onClearReply, o
   }, [text, onTyping, flushTyping]);
 
   useEffect(() => {
-    if (!remitenteNombre.trim() && yoNombre.trim()) setRemitenteNombre(yoNombre.trim());
-  }, [yoNombre, remitenteNombre]);
-
-  useEffect(() => {
     const fn = (e: Event) => {
       const em = (e as CustomEvent<{ emoji?: string }>).detail?.emoji;
       if (em) setText((t) => t + em);
@@ -261,7 +257,8 @@ export function MensajeriaComposer({ canalId, yoNombre, replyTo, onClearReply, o
         <input
           value={remitenteNombre}
           onChange={(e) => setRemitenteNombre(e.target.value)}
-          placeholder="Quién envía el mensaje (obligatorio)"
+          placeholder={yoNombre.trim() ? `Quién envía el mensaje (ej: ${yoNombre.trim()})` : "Quién envía el mensaje (obligatorio)"}
+          autoComplete="off"
           className="w-full rounded-xl border border-[rgba(123,47,247,0.25)] bg-[#1A0A35] px-3 py-2 text-sm text-white placeholder:text-[#6B5A8C]"
         />
       </div>
