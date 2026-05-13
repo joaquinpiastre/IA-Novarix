@@ -14,28 +14,33 @@ import {
   BarChart2,
   Menu,
   X,
+  FileText,
+  Globe,
 } from "lucide-react";
 import { useState } from "react";
 import { NovarixLogo } from "./NovarixLogo";
 import { SignOutButton } from "./SignOutButton";
 import { MensajeriaNavLink } from "./MensajeriaNavLink";
-
-const items = [
-  { href: "/", label: "Inicio", icon: LayoutDashboard },
-  { href: "/agentes", label: "Agentes", icon: Bot },
-  { href: "/conversaciones", label: "Chats", icon: MessageSquare },
-  { href: "/mensajeria", label: "__MENSAJERIA__", icon: MessageSquare },
-  { href: "/crm", label: "CRM", icon: Users },
-  { href: "/seguimientos", label: "Seguimientos", icon: Bell },
-  { href: "/estadisticas", label: "Estadísticas", icon: BarChart2 },
-  { href: "/conocimiento", label: "Conocimiento", icon: BookOpen },
-  { href: "/creditos", label: "Créditos", icon: Coins },
-  { href: "/configuracion", label: "Configuración", icon: Settings },
-];
+import { useI18n } from "@/lib/i18n-context";
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { t, lang, toggle } = useI18n();
+
+  const items = [
+    { href: "/", label: "Inicio", icon: LayoutDashboard },
+    { href: "/agentes", label: "Agentes", icon: Bot },
+    { href: "/conversaciones", label: "Chats", icon: MessageSquare },
+    { href: "/mensajeria", label: "__MENSAJERIA__", icon: MessageSquare },
+    { href: "/crm", label: "CRM", icon: Users },
+    { href: "/seguimientos", label: "Seguimientos", icon: Bell },
+    { href: "/plantillas", label: t("templates"), icon: FileText },
+    { href: "/estadisticas", label: "Estadísticas", icon: BarChart2 },
+    { href: "/conocimiento", label: "Conocimiento", icon: BookOpen },
+    { href: "/creditos", label: "Créditos", icon: Coins },
+    { href: "/configuracion", label: "Configuración", icon: Settings },
+  ];
 
   const menuItems = (
     <>
@@ -96,8 +101,17 @@ export function DashboardSidebar() {
             Automatizá tu atención. Escalá tu negocio.
           </p>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-3">{menuItems}</nav>
-        <div className="border-t border-[#7B2FF7]/20 p-3">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">{menuItems}</nav>
+        <div className="border-t border-[#7B2FF7]/20 p-3 space-y-2">
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[#C4B5FD] transition-colors hover:bg-[#2D0A5E]/60 hover:text-white"
+            title={lang === "es" ? "Switch to English" : "Cambiar a Español"}
+          >
+            <Globe className="h-4 w-4 shrink-0 opacity-90" />
+            <span>{lang === "es" ? "EN" : "ES"} · {t("switchLang")}</span>
+          </button>
           <SignOutButton
             variant="ghost"
             label="Cerrar sesión"

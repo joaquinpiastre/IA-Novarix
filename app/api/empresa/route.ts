@@ -15,6 +15,7 @@ export async function GET() {
       nombre: true,
       email: true,
       whatsappPhoneId: true,
+      whatsappWabaId: true,
       whatsappToken: true,
       whatsappVerifyToken: true,
       whatsappNumero: true,
@@ -49,6 +50,7 @@ export async function PUT(req: Request) {
   const {
     nombre,
     whatsappPhoneId,
+    whatsappWabaId,
     whatsappToken,
     whatsappVerifyToken,
     whatsappNumero,
@@ -60,6 +62,7 @@ export async function PUT(req: Request) {
   } = body as {
     nombre?: string;
     whatsappPhoneId?: string | null;
+    whatsappWabaId?: string | null;
     whatsappToken?: string | null;
     whatsappVerifyToken?: string | null;
     whatsappNumero?: string | null;
@@ -73,6 +76,7 @@ export async function PUT(req: Request) {
   const data: Record<string, unknown> = {};
   if (nombre != null) data.nombre = nombre.trim();
   if (whatsappPhoneId !== undefined) data.whatsappPhoneId = whatsappPhoneId?.trim() || null;
+  if (whatsappWabaId !== undefined) data.whatsappWabaId = whatsappWabaId?.trim() || null;
   if (whatsappVerifyToken !== undefined) data.whatsappVerifyToken = whatsappVerifyToken?.trim() || null;
   if (whatsappNumero !== undefined) data.whatsappNumero = whatsappNumero?.trim() || null;
   if (whatsappToken !== undefined && whatsappToken && !whatsappToken.startsWith("••")) {
@@ -92,6 +96,7 @@ export async function PUT(req: Request) {
     select: {
       nombre: true,
       whatsappPhoneId: true,
+      whatsappWabaId: true,
       whatsappToken: true,
       whatsappVerifyToken: true,
       stockApiUrl: true,

@@ -9,6 +9,7 @@ export function ConfiguracionForm() {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [phoneId, setPhoneId] = useState("");
+  const [wabaId, setWabaId] = useState("");
   const [token, setToken] = useState("");
   const [verify, setVerify] = useState("");
   const [numero, setNumero] = useState("");
@@ -30,6 +31,7 @@ export function ConfiguracionForm() {
         setNombre(e.nombre ?? "");
         setEmail(e.email ?? "");
         setPhoneId(e.whatsappPhoneId ?? "");
+        setWabaId(e.whatsappWabaId ?? "");
         setVerify(e.whatsappVerifyToken ?? "");
         setNumero(e.whatsappNumero ?? "");
         setToken("");
@@ -62,6 +64,7 @@ export function ConfiguracionForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         whatsappPhoneId: phoneId || null,
+        whatsappWabaId: wabaId || null,
         whatsappToken: token || undefined,
         whatsappVerifyToken: verify || null,
         whatsappNumero: numero || null,
@@ -210,6 +213,12 @@ export function ConfiguracionForm() {
             value={phoneId}
             onChange={(e) => setPhoneId(e.target.value)}
             placeholder="ID del número en Meta"
+          />
+          <Input
+            label="WABA ID (WhatsApp Business Account ID)"
+            value={wabaId}
+            onChange={(e) => setWabaId(e.target.value)}
+            placeholder="ID de tu cuenta de WhatsApp Business"
           />
           <Input
             label="Access Token"

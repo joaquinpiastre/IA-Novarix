@@ -3,24 +3,26 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { getEffectiveEmpresaId } from "@/lib/session-empresa";
 import { crearMetaOAuthState } from "@/lib/meta-oauth-state";
-import { getMetaAppId, getMetaOAuthRedirectUri } from "@/lib/meta-graph";
+import { getMetaAppId } from "@/lib/meta-graph";
 
+// Scopes specifically for WhatsApp Business management
 const SCOPES = [
-  "pages_messaging",
-  "instagram_basic",
-  "instagram_manage_messages",
-  "pages_show_list",
-  "pages_read_engagement",
   "whatsapp_business_messaging",
   "whatsapp_business_management",
+  "business_management",
 ].join(",");
 
 export async function GET() {
-  const baseLogin = process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const baseLogin =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000";
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.redirect(new URL("/login", baseLogin));
   }
+
   const empresaId = await getEffectiveEmpresaId(session);
   if (!empresaId) {
     return NextResponse.json({ error: "Sin empresa" }, { status: 403 });
@@ -38,7 +40,12 @@ export async function GET() {
   }
 
   const state = crearMetaOAuthState(empresaId);
-  const redirectUri = getMetaOAuthRedirectUri();
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim() ||
+    "http://localhost:3000";
+  const redirectUri = `${baseUrl.replace(/\/$/, "")}/api/meta/oauth/callback`;
+
   const params = new URLSearchParams({
     client_id: appId,
     redirect_uri: redirectUri,

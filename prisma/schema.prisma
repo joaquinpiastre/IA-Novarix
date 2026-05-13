@@ -34,6 +34,7 @@ model Empresa {
   metaInstagramId       String? // id de la cuenta profesional de Instagram (Graph API)
   metaInstagramUsername String?
   metaConectadoEn       DateTime?
+  whatsappWabaId     String? // WhatsApp Business Account ID (WABA ID) para gestión de plantillas
   stockApiUrl         String? // GET JSON catálogo ERP (lib/stock-api.ts)
   stockApiToken       String?
   stockApiKeyHeader   String? // ej. X-API-Key; vacío + token = Bearer

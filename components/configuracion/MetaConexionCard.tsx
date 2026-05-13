@@ -238,14 +238,28 @@ export function MetaConexionCard() {
           Conectar con Facebook
         </Button>
       </a>
-      <ul className="mt-6 space-y-2 text-sm text-[#9B8FC4]">
+      <div className="mt-5 rounded-lg border border-[#7B2FF7]/20 bg-[#0A0118]/40 p-3">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#7C6FAE]">
+          Permisos solicitados · Permissions requested
+        </p>
+        <ul className="space-y-1.5 text-xs text-[#9B8FC4]">
+          {[
+            "pages_messaging",
+            "instagram_manage_messages",
+            "whatsapp_business_messaging",
+            "whatsapp_business_management",
+          ].map((p) => (
+            <li key={p} className="flex items-center gap-2">
+              <span className="text-emerald-400">✓</span>
+              <code className="text-[#A855F7]">{p}</code>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <ul className="mt-4 space-y-2 text-sm text-[#9B8FC4]">
         <li className="flex gap-2">
           <span className="text-emerald-400">✓</span>
           <span>No guardamos tu contraseña</span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-emerald-400">✓</span>
-          <span>Solo accedemos a los mensajes de tu página</span>
         </li>
         <li className="flex gap-2">
           <span className="text-emerald-400">✓</span>
